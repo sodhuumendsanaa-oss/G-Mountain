@@ -59,6 +59,29 @@ export default function App() {
   const [ownedLandscapes, setOwnedLandscapes] = useState(saved?.ownedLandscapes ?? ['default']);
   const [equippedLandscape, setEquippedLandscape] = useState(saved?.equippedLandscape ?? 'default');
   const [showStore, setShowStore] = useState(false);
+  const [menuCollapsed, setMenuCollapsed] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('hud_collapsed') === 'true'
+  );
+
+  const toggleMenu = useCallback(() => {
+    setMenuCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem('hud_collapsed', String(next));
+      return next;
+    });
+  }, []);
+
+  // Keyboard shortcut: Press 'M' to toggle menu retract/expand
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'm' || e.key === 'M') {
+        toggleMenu();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleMenu]);
 
   // Auth & Cloud state
   const [user, setUser] = useState(null);
@@ -594,6 +617,8 @@ export default function App() {
           equippedLandscape={equippedLandscape}
           onOpenStore={handleOpenStore}
           coins={coins}
+          menuCollapsed={menuCollapsed}
+          onToggleMenu={toggleMenu}
         />
       )}
       {!viewRoadmap && <div className="empty-bg" />}
@@ -632,6 +657,8 @@ export default function App() {
             onResumeClimb={resumeClimb}
             coins={coins}
             onOpenStore={handleOpenStore}
+            collapsed={menuCollapsed}
+            onToggleCollapse={toggleMenu}
           />
           <TopicPanel
             lang={lang}

@@ -37,6 +37,8 @@ export default function Hud({
   onResumeClimb,
   coins = 500,
   onOpenStore,
+  collapsed = false,
+  onToggleCollapse,
 }) {
   const s = STRINGS[lang] || STRINGS.en;
   const done = new Set(completed);
@@ -82,34 +84,60 @@ export default function Hud({
   const phaseLabel = timeInfo ? s.phases[timeInfo.phase] || timeInfo.phase : '';
 
   return (
-    <div className="hud glass">
-      <div className="hud-top-actions">
-        <button type="button" className="lang-switch" onClick={onToggleLang} title="Switch language / 言語切替">
-          <span className={lang === 'en' ? 'active' : ''}>EN</span>
-          <span className={lang === 'ja' ? 'active' : ''}>日本語</span>
-        </button>
+    <>
+      {collapsed && (
         <button
           type="button"
-          className={`lofi-btn ${lofiPlaying ? 'active' : ''}`}
-          onClick={onToggleLofi}
-          title="Chill Lo-Fi + Campfire BGM"
+          className="hud-expand-pill glass"
+          onClick={onToggleCollapse}
+          title={lang === 'ja' ? 'メニューを展開 (M)' : 'Expand Climb Menu (M)'}
         >
-          {lofiPlaying ? s.lofiOn : s.lofiOff}
+          <span className="hud-pill-icon">📊</span>
+          <span className="hud-pill-title">{roadmap.goal}</span>
+          <span className="hud-pill-alt">{altitude.toLocaleString()} m</span>
+          {coins > 0 && <span className="hud-pill-coins">🪙 {coins.toLocaleString()}</span>}
+          <span className="hud-pill-arrow">▶</span>
         </button>
-        {onOpenStore && (
+      )}
+
+      <div className={`hud glass ${collapsed ? 'collapsed' : ''}`}>
+        <div className="hud-top-actions">
+          <button type="button" className="lang-switch" onClick={onToggleLang} title="Switch language / 言語切替">
+            <span className={lang === 'en' ? 'active' : ''}>EN</span>
+            <span className={lang === 'ja' ? 'active' : ''}>日本語</span>
+          </button>
           <button
             type="button"
-            className="store-top-btn"
-            onClick={onOpenStore}
-            title={lang === 'ja' ? 'アバターストアを開く' : 'Open Avatar & Gear Store'}
+            className={`lofi-btn ${lofiPlaying ? 'active' : ''}`}
+            onClick={onToggleLofi}
+            title="Chill Lo-Fi + Campfire BGM"
           >
-            🛍️ <span>{coins.toLocaleString()}</span>
+            {lofiPlaying ? s.lofiOn : s.lofiOff}
           </button>
-        )}
-        <button className="secondary small" onClick={onNew} style={{ marginLeft: 'auto' }}>
-          {s.newGoal}
-        </button>
-      </div>
+          {onOpenStore && (
+            <button
+              type="button"
+              className="store-top-btn"
+              onClick={onOpenStore}
+              title={lang === 'ja' ? 'アバターストアを開く' : 'Open Avatar & Gear Store'}
+            >
+              🛍️ <span>{coins.toLocaleString()}</span>
+            </button>
+          )}
+          <button className="secondary small" onClick={onNew} style={{ marginLeft: 'auto' }}>
+            {s.newGoal}
+          </button>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className="hud-retract-btn"
+              onClick={onToggleCollapse}
+              title={lang === 'ja' ? 'メニューを格納（軽量モード）' : 'Retract menu (less lag & full view)'}
+            >
+              ◀ {lang === 'ja' ? '隠す' : 'Hide'}
+            </button>
+          )}
+        </div>
 
       {isSpectator ? (
         <div className="spectator-banner">
@@ -339,5 +367,6 @@ export default function Hud({
         </span>
       </div>
     </div>
-  );
+  </>
+);
 }

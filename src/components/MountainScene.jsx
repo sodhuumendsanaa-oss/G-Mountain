@@ -303,6 +303,8 @@ export default React.memo(function MountainScene({
   equippedLandscape = 'default',
   onOpenStore,
   coins = 500,
+  menuCollapsed = false,
+  onToggleMenu,
 }) {
   const [hasSnow, setHasSnow] = useState(false); // Cleared by default!
   const [cameraMode, setCameraMode] = useState('free'); // 'free' | 'avatar' | 'mountain'
@@ -404,6 +406,21 @@ export default React.memo(function MountainScene({
         >
           🧭 Reset View
         </button>
+        {onToggleMenu && (
+          <button
+            className={`scene-btn ${menuCollapsed ? 'active' : ''}`}
+            onClick={onToggleMenu}
+            title={
+              menuCollapsed
+                ? (lang === 'ja' ? 'ダッシュボードを表示 (M)' : 'Show Dashboard Menu (M)')
+                : (lang === 'ja' ? 'メニューを格納して軽量化 (M)' : 'Retract Menu for Less Lag (M)')
+            }
+          >
+            {menuCollapsed
+              ? (lang === 'ja' ? '📊 メニュー表示' : '📊 Show Menu')
+              : (lang === 'ja' ? '⚡ メニュー格納 (軽量化)' : '⚡ Retract Menu (Less Lag)')}
+          </button>
+        )}
         <span className="scene-tip">
           🖱️ Right-drag / 2-finger to pan
         </span>

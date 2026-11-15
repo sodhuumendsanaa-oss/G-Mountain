@@ -4,6 +4,7 @@ import GoalForm from './components/GoalForm.jsx';
 import TopicPanel from './components/TopicPanel.jsx';
 import CampPanel from './components/CampPanel.jsx';
 import Hud from './components/Hud.jsx';
+import AvatarStoreModal from './components/AvatarStoreModal.jsx';
 import { mockRoadmap } from '../shared/mockRoadmap.js';
 import { ensureDifficultyAndRests } from '../shared/normalize.js';
 import { buildCamps, durationMs, hoursProgress, isCampReached, newClock, simTime } from './lib/schedule.js';
@@ -51,6 +52,12 @@ export default function App() {
   const toastTimer = useRef();
   const prevSpeedRef = useRef(1);
 
+  // Store & Avatar state (Monetization & Study-to-earn)
+  const [coins, setCoins] = useState(saved?.coins ?? 500); // 500 starter bonus coins
+  const [ownedAvatars, setOwnedAvatars] = useState(saved?.ownedAvatars ?? ['goku']);
+  const [equippedAvatar, setEquippedAvatar] = useState(saved?.equippedAvatar ?? 'goku');
+  const [showStore, setShowStore] = useState(false);
+
   // Auth & Cloud state
   const [user, setUser] = useState(null);
   const [cloudStatus, setCloudStatus] = useState('idle'); // idle | syncing | saved | error
@@ -75,10 +82,20 @@ export default function App() {
     if (roadmap && !isSpectator) {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ lang, roadmap, completed, clock, restingCampId, aiRestNotes })
+        JSON.stringify({
+          lang,
+          roadmap,
+          completed,
+          clock,
+          restingCampId,
+          aiRestNotes,
+          coins,
+          ownedAvatars,
+          equippedAvatar,
+        })
       );
     }
-  }, [lang, roadmap, completed, clock, restingCampId, aiRestNotes, isSpectator]);
+  }, [lang, roadmap, completed, clock, restingCampId, aiRestNotes, coins, ownedAvatars, equippedAvatar, isSpectator]);
 
   // Auth listener & load user's cloud mountain
   useEffect(() => {
@@ -99,13 +116,16 @@ export default function App() {
               setRestingCampId(cloudData.restingCampId || null);
               setAiRestNotes(cloudData.aiRestNotes || {});
               if (cloudData.lang) setLang(cloudData.lang);
+              if (cloudData.coins !== undefined) setCoins(cloudData.coins);
+              if (cloudData.ownedAvatars) setOwnedAvatars(cloudData.ownedAvatars);
+              if (cloudData.equippedAvatar) setEquippedAvatar(cloudData.equippedAvatar);
               setShowForm(false);
               showToast(`☁️ ${authUser.displayName || 'Climber'}, your mountain was loaded from cloud!`);
             } else if (roadmap) {
               // Sync current local mountain to user's new account
               await saveMountainToCloud(
                 authUser.uid,
-                { roadmap, completed, clock, restingCampId, aiRestNotes, lang },
+                { roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar },
                 authUser
               );
             }
@@ -136,6 +156,7 @@ export default function App() {
           setRestingCampId(sharedData.restingCampId || null);
           setAiRestNotes(sharedData.aiRestNotes || {});
           if (sharedData.lang) setLang(sharedData.lang);
+          if (sharedData.equippedAvatar) setEquippedAvatar(sharedData.equippedAvatar);
           setShowForm(false);
           showToast(`👀 Exploring ${sharedData.user?.displayName || 'Adventurer'}'s Mountain!`);
         }
@@ -151,7 +172,7 @@ export default function App() {
       try {
         await saveMountainToCloud(
           user.uid,
-          { roadmap, completed, clock, restingCampId, aiRestNotes, lang },
+          { roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar },
           user
         );
         setCloudStatus('saved');
@@ -161,7 +182,7 @@ export default function App() {
       }
     }, 1200);
     return () => clearTimeout(timer);
-  }, [user, isSpectator, roadmap, completed, clock, restingCampId, aiRestNotes, lang]);
+  }, [user, isSpectator, roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar]);
 
   const camps = useMemo(
     () => (roadmap ? buildCamps(roadmap.nodes, aiRestNotes, lang) : []),
@@ -402,24 +423,57 @@ export default function App() {
       (n) => !next.includes(n.id) && n.prerequisites.includes(id) && n.prerequisites.every((p) => next.includes(p))
     );
 
+    const earnedCoins = (node.difficulty || 3) * 15 + 10;
+    setCoins((c) => c + earnedCoins);
+
     if (isLast) {
       if (restingCampId) {
         setRestingCampId(null);
         setSpeed(prevSpeedRef.current || 1);
       }
-      showToast(s.toastSummit);
+      setCoins((c) => c + 500);
+      showToast(`${s.toastSummit} 🏆 +500 Summit Coins!`);
     } else if (shouldRest && crossedCamp) {
       pauseAtCamp(crossedCamp.id);
       setSelectedId(null);
       setSelectedCampId(crossedCamp.id);
-      showToast(s.toastToughTestRest(node.difficulty || 4, crossedCamp.name));
+      showToast(`${s.toastToughTestRest(node.difficulty || 4, crossedCamp.name)} 🪙 +${earnedCoins} Coins!`);
     } else {
       if (restingCampId) {
         setRestingCampId(null);
         setSpeed(prevSpeedRef.current || 1);
       }
-      showToast(s.toastClimbed(node.title, unlocked.length));
+      showToast(`${s.toastClimbed(node.title, unlocked.length)} 🪙 +${earnedCoins} Coins!`);
     }
+  };
+
+  const handleEquipAvatar = (avatarId) => {
+    setEquippedAvatar(avatarId);
+    showToast(lang === 'ja' ? '🥋 アバターを装備しました！' : '🥋 Avatar equipped!');
+  };
+
+  const handleBuyAvatar = (avatarItem) => {
+    if (coins < avatarItem.price) {
+      showToast(lang === 'ja' ? '⚠️ コインが不足しています。' : '⚠️ Not enough Climb Coins.');
+      return;
+    }
+    setCoins((c) => c - avatarItem.price);
+    setOwnedAvatars((prev) => (prev.includes(avatarItem.id) ? prev : [...prev, avatarItem.id]));
+    setEquippedAvatar(avatarItem.id);
+    showToast(
+      lang === 'ja'
+        ? `🎉 ${avatarItem.nameJa} を購入＆装備しました！`
+        : `🎉 Unlocked & equipped ${avatarItem.name}!`
+    );
+  };
+
+  const handleBuyCoins = (coinsAmount, priceUsd) => {
+    setCoins((c) => c + coinsAmount);
+    showToast(
+      lang === 'ja'
+        ? `💎 ${coinsAmount.toLocaleString()} コインを購入しました (${priceUsd})！`
+        : `💎 Purchased ${coinsAmount.toLocaleString()} Coins (${priceUsd})!`
+    );
   };
 
   const undo = (id) => {
@@ -455,6 +509,9 @@ export default function App() {
           paceFrac={paceFrac}
           restingCampId={restingCampId}
           onSelectCamp={selectCamp}
+          equippedAvatar={equippedAvatar}
+          onOpenStore={() => setShowStore(true)}
+          coins={coins}
         />
       )}
       {!viewRoadmap && <div className="empty-bg" />}
@@ -491,6 +548,8 @@ export default function App() {
             restingCampId={restingCampId}
             onSelectCamp={selectCamp}
             onResumeClimb={resumeClimb}
+            coins={coins}
+            onOpenStore={() => setShowStore(true)}
           />
           <TopicPanel
             lang={lang}
@@ -518,6 +577,19 @@ export default function App() {
           />
           <div className="hint-bar">{s.hintBar(timeInfo.icon, timeInfo.timeStr, phaseLabel)}</div>
         </>
+      )}
+
+      {showStore && (
+        <AvatarStoreModal
+          lang={lang}
+          coins={coins}
+          ownedAvatars={ownedAvatars}
+          equippedAvatar={equippedAvatar}
+          onEquip={handleEquipAvatar}
+          onBuyAvatar={handleBuyAvatar}
+          onBuyCoins={handleBuyCoins}
+          onClose={() => setShowStore(false)}
+        />
       )}
 
       {showForm && (

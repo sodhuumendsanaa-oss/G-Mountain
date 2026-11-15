@@ -35,6 +35,8 @@ export default function Hud({
   restingCampId,
   onSelectCamp,
   onResumeClimb,
+  coins = 500,
+  onOpenStore,
 }) {
   const s = STRINGS[lang] || STRINGS.en;
   const done = new Set(completed);
@@ -92,6 +94,16 @@ export default function Hud({
         >
           {lofiPlaying ? s.lofiOn : s.lofiOff}
         </button>
+        {onOpenStore && (
+          <button
+            type="button"
+            className="store-top-btn"
+            onClick={onOpenStore}
+            title={lang === 'ja' ? 'アバターストアを開く' : 'Open Avatar & Gear Store'}
+          >
+            🛍️ <span>{coins.toLocaleString()}</span>
+          </button>
+        )}
         <button className="secondary small" onClick={onNew} style={{ marginLeft: 'auto' }}>
           {s.newGoal}
         </button>

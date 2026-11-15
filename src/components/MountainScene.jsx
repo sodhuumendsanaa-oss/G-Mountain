@@ -7,6 +7,7 @@ import { layoutNodes, baseCampPosition, trailPoints, pointAtFraction, placeCamps
 import { scheduleSlices, hoursProgress, isCampReached } from '../lib/schedule.js';
 import { Terrain, Trees, Rocks, Clouds, Snow } from './scene/Landscape.jsx';
 import { Camp } from './scene/Camps.jsx';
+import { AvatarMesh } from './scene/AvatarModels.jsx';
 import { STRINGS } from '../lib/i18n.js';
 
 const STATUS_COLOR = { completed: '#ffc845', available: '#6fe0ff', locked: '#8a93a3' };
@@ -94,7 +95,15 @@ function Trail({ from, to, state }) {
   return <Line points={points} {...style} dashSize={0.22} gapSize={0.16} transparent opacity={state === 'locked' ? 0.55 : 0.95} />;
 }
 
-function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost = false, resting = false, onFocus }) {
+function Climber({
+  target,
+  label = 'You',
+  restingLabel = '🔥 Resting',
+  ghost = false,
+  resting = false,
+  onFocus,
+  avatarId = 'goku',
+}) {
   const group = useRef();
   const goal = useMemo(() => new THREE.Vector3(...target), [target]);
   const initialized = useRef(false);
@@ -117,35 +126,6 @@ function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost =
     }
   });
 
-  const mat = (color, emissive = '#000000', emissiveIntensity = 0) => (
-    <meshStandardMaterial
-      color={ghost ? '#bfe9ff' : color}
-      emissive={ghost ? '#38bdf8' : emissive}
-      emissiveIntensity={ghost ? 0.3 : emissiveIntensity}
-      roughness={0.5}
-      metalness={0.1}
-      transparent={ghost}
-      opacity={ghost ? 0.45 : 1}
-      depthWrite={!ghost}
-    />
-  );
-
-  const hairColor = ghost ? '#c7f1ff' : resting ? '#ffe600' : '#141418';
-  const hairEmissive = ghost ? '#38bdf8' : resting ? '#ffaa00' : '#000000';
-  const hairEmissiveInt = ghost ? 0.4 : resting ? 0.9 : 0;
-  const hairMat = (
-    <meshStandardMaterial
-      color={hairColor}
-      emissive={hairEmissive}
-      emissiveIntensity={hairEmissiveInt}
-      roughness={0.4}
-      metalness={resting ? 0.3 : 0.1}
-      transparent={ghost}
-      opacity={ghost ? 0.5 : 1}
-      depthWrite={!ghost}
-    />
-  );
-
   return (
     <group
       ref={group}
@@ -163,142 +143,7 @@ function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost =
       }}
     >
       <group>
-        {/* Golden Super Saiyan energy aura when resting at camp */}
-        {!ghost && resting && (
-          <pointLight position={[0, 0.45, 0]} color="#ffe066" intensity={2.2} distance={1.8} />
-        )}
-
-        {/* --- Boots (Dark Navy / Blue) --- */}
-        <mesh castShadow={!ghost} position={[-0.045, 0.035, 0]}>
-          <boxGeometry args={[0.045, 0.07, 0.07]} />
-          {mat('#1b2845')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[0.045, 0.035, 0]}>
-          <boxGeometry args={[0.045, 0.07, 0.07]} />
-          {mat('#1b2845')}
-        </mesh>
-
-        {/* --- Baggy Dogi Pants (Vibrant Orange) --- */}
-        <mesh castShadow={!ghost} position={[-0.045, 0.11, 0]}>
-          <cylinderGeometry args={[0.045, 0.04, 0.09, 8]} />
-          {mat('#f97316')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[0.045, 0.11, 0]}>
-          <cylinderGeometry args={[0.045, 0.04, 0.09, 8]} />
-          {mat('#f97316')}
-        </mesh>
-
-        {/* --- Sash / Obi Belt (Navy Blue with hanging tie knot) --- */}
-        <mesh castShadow={!ghost} position={[0, 0.17, 0]}>
-          <cylinderGeometry args={[0.075, 0.075, 0.035, 10]} />
-          {mat('#1d3557')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[0.04, 0.125, 0.065]} rotation={[0.1, 0, -0.2]}>
-          <boxGeometry args={[0.025, 0.07, 0.015]} />
-          {mat('#1d3557')}
-        </mesh>
-
-        {/* --- Torso Gi Vest (Orange Dogi with V-neck cutout) --- */}
-        <mesh castShadow={!ghost} position={[0, 0.255, 0]}>
-          <boxGeometry args={[0.14, 0.135, 0.095]} />
-          {mat('#f97316')}
-        </mesh>
-        {/* Navy Blue Undershirt chest inner */}
-        <mesh position={[0, 0.275, 0.05]}>
-          <planeGeometry args={[0.07, 0.08]} />
-          {mat('#1d3557')}
-        </mesh>
-        {/* White Turtle School Style Back Crest (Circle Badge) */}
-        {!ghost && (
-          <mesh position={[0, 0.26, -0.05]}>
-            <circleGeometry args={[0.032, 12]} />
-            {mat('#f8fafc')}
-          </mesh>
-        )}
-
-        {/* --- Arms & Navy Blue Wristbands --- */}
-        <mesh castShadow={!ghost} position={[-0.095, 0.26, 0]}>
-          <cylinderGeometry args={[0.026, 0.026, 0.08, 8]} />
-          {mat('#fbd3b6')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[-0.095, 0.20, 0]}>
-          <cylinderGeometry args={[0.03, 0.028, 0.05, 8]} />
-          {mat('#1d3557')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[0.095, 0.26, 0]}>
-          <cylinderGeometry args={[0.026, 0.026, 0.08, 8]} />
-          {mat('#fbd3b6')}
-        </mesh>
-        <mesh castShadow={!ghost} position={[0.095, 0.20, 0]}>
-          <cylinderGeometry args={[0.03, 0.028, 0.05, 8]} />
-          {mat('#1d3557')}
-        </mesh>
-
-        {/* --- Red Power-Pole Climbing Staff (Strapped on back) --- */}
-        {!ghost && (
-          <group position={[0, 0.28, -0.075]} rotation={[0.35, 0.25, 0.65]}>
-            <mesh castShadow>
-              <cylinderGeometry args={[0.012, 0.012, 0.42, 8]} />
-              <meshStandardMaterial color="#dc2626" roughness={0.3} metalness={0.2} />
-            </mesh>
-            <mesh position={[0, 0.21, 0]}>
-              <cylinderGeometry args={[0.014, 0.014, 0.03, 8]} />
-              <meshStandardMaterial color="#facc15" metalness={0.7} roughness={0.3} />
-            </mesh>
-            <mesh position={[0, -0.21, 0]}>
-              <cylinderGeometry args={[0.014, 0.014, 0.03, 8]} />
-              <meshStandardMaterial color="#facc15" metalness={0.7} roughness={0.3} />
-            </mesh>
-          </group>
-        )}
-
-        {/* --- Head --- */}
-        <mesh castShadow={!ghost} position={[0, 0.38, 0]}>
-          <sphereGeometry args={[0.072, 16, 16]} />
-          {mat('#fbd3b6')}
-        </mesh>
-
-        {/* --- Stylized Multi-Spiked Goku Anime Hair --- */}
-        {/* Top center upward sweep */}
-        <mesh castShadow={!ghost} position={[0, 0.49, -0.01]} rotation={[-0.15, 0, 0]}>
-          <coneGeometry args={[0.045, 0.15, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Left main flare */}
-        <mesh castShadow={!ghost} position={[-0.055, 0.46, 0.01]} rotation={[0, 0, 0.65]}>
-          <coneGeometry args={[0.042, 0.14, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Left lower swept spike */}
-        <mesh castShadow={!ghost} position={[-0.08, 0.40, -0.01]} rotation={[-0.1, 0.15, 1.05]}>
-          <coneGeometry args={[0.036, 0.13, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Right main flare */}
-        <mesh castShadow={!ghost} position={[0.055, 0.45, 0.01]} rotation={[0, 0, -0.55]}>
-          <coneGeometry args={[0.04, 0.13, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Right lower swept spike */}
-        <mesh castShadow={!ghost} position={[0.075, 0.39, -0.01]} rotation={[-0.1, -0.15, -0.95]}>
-          <coneGeometry args={[0.035, 0.12, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Back top volume spike */}
-        <mesh castShadow={!ghost} position={[0, 0.42, -0.065]} rotation={[-0.75, 0, 0]}>
-          <coneGeometry args={[0.042, 0.13, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Back left spike */}
-        <mesh castShadow={!ghost} position={[-0.045, 0.37, -0.055]} rotation={[-0.55, 0.3, 0.45]}>
-          <coneGeometry args={[0.035, 0.11, 5]} />
-          {hairMat}
-        </mesh>
-        {/* Back right spike */}
-        <mesh castShadow={!ghost} position={[0.045, 0.37, -0.055]} rotation={[-0.55, -0.3, -0.45]}>
-          <coneGeometry args={[0.035, 0.11, 5]} />
-          {hairMat}
-        </mesh>
+        <AvatarMesh avatarId={ghost ? 'goku' : avatarId} ghost={ghost} resting={resting} />
 
         {/* --- Label --- */}
         <Html center position={[0, ghost ? 0.74 : 0.8, 0]} distanceFactor={16} zIndexRange={[11, 0]}>
@@ -455,6 +300,9 @@ export default React.memo(function MountainScene({
   paceFrac = 0,
   restingCampId = null,
   onSelectCamp,
+  equippedAvatar = 'goku',
+  onOpenStore,
+  coins = 500,
 }) {
   const [hasSnow, setHasSnow] = useState(false); // Cleared by default!
   const [cameraMode, setCameraMode] = useState('free'); // 'free' | 'avatar' | 'mountain'
@@ -516,6 +364,15 @@ export default React.memo(function MountainScene({
         >
           {hasSnow ? '❄️ Snow: On' : '☀️ Snow: Cleared'}
         </button>
+        {onOpenStore && (
+          <button
+            className="scene-btn store-pill-btn"
+            onClick={onOpenStore}
+            title={lang === 'ja' ? 'アバターストアを開く' : 'Open Avatar & Pro Gear Store'}
+          >
+            🛍️ {lang === 'ja' ? 'ショップ' : 'Store'} <span className="coin-pill-tag">🪙 {coins.toLocaleString()}</span>
+          </button>
+        )}
         <button
           className="scene-btn"
           onClick={() => setCameraMode('mountain')}
@@ -524,7 +381,7 @@ export default React.memo(function MountainScene({
           🧭 Reset View
         </button>
         <span className="scene-tip">
-          🖱️ Right-drag / 2-finger drag to pan freely
+          🖱️ Right-drag / 2-finger to pan
         </span>
       </div>
 
@@ -625,6 +482,7 @@ export default React.memo(function MountainScene({
           restingLabel={s.resting3d}
           resting={Boolean(restingCampId)}
           onFocus={() => setCameraMode('avatar')}
+          avatarId={equippedAvatar}
         />
         <Climber target={paceTarget} label={s.pace3d} ghost />
 

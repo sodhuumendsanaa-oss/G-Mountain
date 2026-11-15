@@ -131,3 +131,36 @@ export const COIN_PACKS = [
     icon: '👑',
   },
 ];
+
+export const LANDSCAPE_CATALOG = [
+  {
+    id: 'default',
+    name: 'Alpine Peak',
+    nameJa: 'アルパイン・ピーク',
+    price: 0,
+    priceUsd: 'Free',
+    rarity: 'Common',
+    rarityColor: '#94a3b8',
+    color: '#0284c7',
+    icon: '🏔️',
+    description: 'Crisp high-altitude granite peaks, emerald evergreen pine forests, and clear blue alpine skies.',
+    descriptionJa: '緑豊かな針葉樹林と花崗岩が織りなす大自然のアルパイン山岳。爽快な青空と山々の大自然。',
+    features: ['Classic Granite Ridges', 'Pine Forests', 'Clear Weather', 'Summit Milestone Flag'],
+    featuresJa: ['花崗岩の尾根', '深緑の針葉樹林', 'クリアな天候', '山頂の到達フラッグ'],
+  },
+  {
+    id: 'christmas',
+    name: 'Christmas Wonderland',
+    nameJa: 'クリスマス・ワンダーランド',
+    price: 500,
+    priceUsd: '$2.99',
+    rarity: 'Legendary',
+    rarityColor: '#f59e0b',
+    color: '#dc2626',
+    icon: '🎄',
+    description: 'Enchanting holiday snowscape featuring a giant illuminated Summit Christmas Tree, golden star, gift boxes at all camps, candy canes, and peaceful snowflakes.',
+    descriptionJa: '山頂に輝く巨大クリスマスツリーと黄金の星、各キャンプのプレゼント箱、キャンディケイン、舞い散る聖夜の雪景色。',
+    features: ['Summit Grand Christmas Tree', 'Golden Star of Bethlehem', 'Holiday Gift Boxes at Camps', 'Candy Canes & Snowfall'],
+    featuresJa: ['山頂の巨大クリスマスツリー', '輝く黄金のベツレヘムの星', '各キャンプのプレゼント箱', 'キャンディケインと雪景色'],
+  },
+];

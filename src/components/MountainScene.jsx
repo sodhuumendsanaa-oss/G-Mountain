@@ -8,6 +8,7 @@ import { scheduleSlices, hoursProgress, isCampReached } from '../lib/schedule.js
 import { Terrain, Trees, Rocks, Clouds, Snow } from './scene/Landscape.jsx';
 import { Camp } from './scene/Camps.jsx';
 import { AvatarMesh } from './scene/AvatarModels.jsx';
+import { SummitChristmasTree, CampHolidayPresents, HolidaySnow } from './scene/ChristmasDecor.jsx';
 import { STRINGS } from '../lib/i18n.js';
 
 const STATUS_COLOR = { completed: '#ffc845', available: '#6fe0ff', locked: '#8a93a3' };
@@ -298,12 +299,15 @@ export default React.memo(function MountainScene({
   restingCampId = null,
   onSelectCamp,
   equippedAvatar = 'goku',
+  equippedLandscape = 'default',
   onOpenStore,
   coins = 500,
 }) {
   const [hasSnow, setHasSnow] = useState(false); // Cleared by default!
   const [cameraMode, setCameraMode] = useState('free'); // 'free' | 'avatar' | 'mountain'
   const [perfMode, setPerfMode] = useState('quality'); // 'quality' | 'fast' (60 FPS mode)
+
+  const isChristmas = equippedLandscape === 'christmas';
 
   const s = STRINGS[lang] || STRINGS.en;
   const positions = useMemo(() => layoutNodes(roadmap.nodes), [roadmap]);
@@ -438,13 +442,14 @@ export default React.memo(function MountainScene({
           shadow-camera-bottom={-16}
         />
 
-        <Terrain hasSnow={hasSnow} />
+        <Terrain hasSnow={isChristmas || hasSnow} />
         <Trees avoid={avoidList} />
         <Rocks />
         <Clouds color={timeInfo?.cloudColor || '#ffffff'} opacity={timeInfo?.cloudOpacity ?? 0.85} />
-        {hasSnow && <Snow />}
-        <SummitFlag conquered={allDone} />
+        {isChristmas ? <HolidaySnow count={260} /> : hasSnow ? <Snow /> : null}
+        {isChristmas ? <SummitChristmasTree conquered={allDone} /> : <SummitFlag conquered={allDone} />}
         <BaseCamp position={camp} lightBoost={lightBoost} lang={lang} onClick={() => onSelectCamp?.('base')} />
+        {isChristmas && <CampHolidayPresents position={camp} />}
 
         {camps.map((c) => {
           const reached = isCampReached(c, completed, progressFrac);
@@ -461,6 +466,7 @@ export default React.memo(function MountainScene({
                 lang={lang}
                 onClick={() => onSelectCamp?.(c.id)}
               />
+              {isChristmas && <CampHolidayPresents position={campPos[c.id]} />}
             </React.Fragment>
           );
         })}

@@ -52,10 +52,12 @@ export default function App() {
   const toastTimer = useRef();
   const prevSpeedRef = useRef(1);
 
-  // Store & Avatar state (Monetization & Study-to-earn)
+  // Store, Avatar & Landscape state (Monetization & Study-to-earn)
   const [coins, setCoins] = useState(saved?.coins ?? 500); // 500 starter bonus coins
   const [ownedAvatars, setOwnedAvatars] = useState(saved?.ownedAvatars ?? ['goku']);
   const [equippedAvatar, setEquippedAvatar] = useState(saved?.equippedAvatar ?? 'goku');
+  const [ownedLandscapes, setOwnedLandscapes] = useState(saved?.ownedLandscapes ?? ['default']);
+  const [equippedLandscape, setEquippedLandscape] = useState(saved?.equippedLandscape ?? 'default');
   const [showStore, setShowStore] = useState(false);
 
   // Auth & Cloud state
@@ -92,10 +94,25 @@ export default function App() {
           coins,
           ownedAvatars,
           equippedAvatar,
+          ownedLandscapes,
+          equippedLandscape,
         })
       );
     }
-  }, [lang, roadmap, completed, clock, restingCampId, aiRestNotes, coins, ownedAvatars, equippedAvatar, isSpectator]);
+  }, [
+    lang,
+    roadmap,
+    completed,
+    clock,
+    restingCampId,
+    aiRestNotes,
+    coins,
+    ownedAvatars,
+    equippedAvatar,
+    ownedLandscapes,
+    equippedLandscape,
+    isSpectator,
+  ]);
 
   // Auth listener & load user's cloud mountain
   useEffect(() => {
@@ -119,13 +136,27 @@ export default function App() {
               if (cloudData.coins !== undefined) setCoins(cloudData.coins);
               if (cloudData.ownedAvatars) setOwnedAvatars(cloudData.ownedAvatars);
               if (cloudData.equippedAvatar) setEquippedAvatar(cloudData.equippedAvatar);
+              if (cloudData.ownedLandscapes) setOwnedLandscapes(cloudData.ownedLandscapes);
+              if (cloudData.equippedLandscape) setEquippedLandscape(cloudData.equippedLandscape);
               setShowForm(false);
               showToast(`☁️ ${authUser.displayName || 'Climber'}, your mountain was loaded from cloud!`);
             } else if (roadmap) {
               // Sync current local mountain to user's new account
               await saveMountainToCloud(
                 authUser.uid,
-                { roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar },
+                {
+                  roadmap,
+                  completed,
+                  clock,
+                  restingCampId,
+                  aiRestNotes,
+                  lang,
+                  coins,
+                  ownedAvatars,
+                  equippedAvatar,
+                  ownedLandscapes,
+                  equippedLandscape,
+                },
                 authUser
               );
             }
@@ -157,6 +188,7 @@ export default function App() {
           setAiRestNotes(sharedData.aiRestNotes || {});
           if (sharedData.lang) setLang(sharedData.lang);
           if (sharedData.equippedAvatar) setEquippedAvatar(sharedData.equippedAvatar);
+          if (sharedData.equippedLandscape) setEquippedLandscape(sharedData.equippedLandscape);
           setShowForm(false);
           showToast(`👀 Exploring ${sharedData.user?.displayName || 'Adventurer'}'s Mountain!`);
         }
@@ -172,7 +204,19 @@ export default function App() {
       try {
         await saveMountainToCloud(
           user.uid,
-          { roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar },
+          {
+            roadmap,
+            completed,
+            clock,
+            restingCampId,
+            aiRestNotes,
+            lang,
+            coins,
+            ownedAvatars,
+            equippedAvatar,
+            ownedLandscapes,
+            equippedLandscape,
+          },
           user
         );
         setCloudStatus('saved');
@@ -182,7 +226,21 @@ export default function App() {
       }
     }, 1200);
     return () => clearTimeout(timer);
-  }, [user, isSpectator, roadmap, completed, clock, restingCampId, aiRestNotes, lang, coins, ownedAvatars, equippedAvatar]);
+  }, [
+    user,
+    isSpectator,
+    roadmap,
+    completed,
+    clock,
+    restingCampId,
+    aiRestNotes,
+    lang,
+    coins,
+    ownedAvatars,
+    equippedAvatar,
+    ownedLandscapes,
+    equippedLandscape,
+  ]);
 
   const camps = useMemo(
     () => (roadmap ? buildCamps(roadmap.nodes, aiRestNotes, lang) : []),
@@ -467,6 +525,26 @@ export default function App() {
     );
   };
 
+  const handleEquipLandscape = (landscapeId) => {
+    setEquippedLandscape(landscapeId);
+    showToast(lang === 'ja' ? '🎄 ランドスケープを変更しました！' : '🎄 Landscape equipped!');
+  };
+
+  const handleBuyLandscape = (landscapeItem) => {
+    if (coins < landscapeItem.price) {
+      showToast(lang === 'ja' ? '⚠️ コインが不足しています。' : '⚠️ Not enough Climb Coins.');
+      return;
+    }
+    setCoins((c) => c - landscapeItem.price);
+    setOwnedLandscapes((prev) => (prev.includes(landscapeItem.id) ? prev : [...prev, landscapeItem.id]));
+    setEquippedLandscape(landscapeItem.id);
+    showToast(
+      lang === 'ja'
+        ? `🎄 ${landscapeItem.nameJa} を購入＆設定しました！`
+        : `🎄 Unlocked & equipped ${landscapeItem.name}!`
+    );
+  };
+
   const handleBuyCoins = (coinsAmount, priceUsd) => {
     setCoins((c) => c + coinsAmount);
     showToast(
@@ -513,6 +591,7 @@ export default function App() {
           restingCampId={restingCampId}
           onSelectCamp={selectCamp}
           equippedAvatar={equippedAvatar}
+          equippedLandscape={equippedLandscape}
           onOpenStore={handleOpenStore}
           coins={coins}
         />
@@ -588,8 +667,12 @@ export default function App() {
           coins={coins}
           ownedAvatars={ownedAvatars}
           equippedAvatar={equippedAvatar}
+          ownedLandscapes={ownedLandscapes}
+          equippedLandscape={equippedLandscape}
           onEquip={handleEquipAvatar}
           onBuyAvatar={handleBuyAvatar}
+          onEquipLandscape={handleEquipLandscape}
+          onBuyLandscape={handleBuyLandscape}
           onBuyCoins={handleBuyCoins}
           onClose={handleCloseStore}
         />

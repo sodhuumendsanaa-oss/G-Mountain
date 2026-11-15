@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { AVATAR_CATALOG, COIN_PACKS } from '../lib/avatarCatalog.js';
+import { AVATAR_CATALOG, COIN_PACKS, LANDSCAPE_CATALOG } from '../lib/avatarCatalog.js';
 
 export default function AvatarStoreModal({
   lang = 'en',
   coins = 500,
   ownedAvatars = ['goku'],
   equippedAvatar = 'goku',
+  ownedLandscapes = ['default'],
+  equippedLandscape = 'default',
   onEquip,
   onBuyAvatar,
+  onEquipLandscape,
+  onBuyLandscape,
   onBuyCoins,
   onClose,
 }) {
-  const [tab, setTab] = useState('avatars'); // 'avatars' | 'coins' | 'earn'
+  const [tab, setTab] = useState('avatars'); // 'avatars' | 'landscapes' | 'coins' | 'earn'
   const [checkoutPack, setCheckoutPack] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -78,6 +82,12 @@ export default function AvatarStoreModal({
             onClick={() => setTab('avatars')}
           >
             🥋 {isJa ? 'アバター & 衣装' : 'Avatars & Outfits'}
+          </button>
+          <button
+            className={`store-tab-btn ${tab === 'landscapes' ? 'active' : ''}`}
+            onClick={() => setTab('landscapes')}
+          >
+            🎄 {isJa ? '景観 & テーマ' : 'Landscapes'}
           </button>
           <button
             className={`store-tab-btn ${tab === 'coins' ? 'active' : ''}`}
@@ -183,7 +193,104 @@ export default function AvatarStoreModal({
           </div>
         )}
 
-        {/* Tab 2: Coin Packs */}
+        {/* Tab 2: Landscapes & Themes */}
+        {tab === 'landscapes' && (
+          <div className="store-content">
+            <div className="avatar-grid">
+              {LANDSCAPE_CATALOG.map((item) => {
+                const isOwned = ownedLandscapes.includes(item.id);
+                const isEquipped = equippedLandscape === item.id;
+                const canAfford = coins >= item.price;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`avatar-card ${isEquipped ? 'equipped' : ''}`}
+                    style={{ '--accent-color': item.color }}
+                  >
+                    <div className="card-top-bar">
+                      <span
+                        className="rarity-badge"
+                        style={{
+                          backgroundColor: `${item.rarityColor}25`,
+                          color: item.rarityColor,
+                          borderColor: item.rarityColor,
+                        }}
+                      >
+                        {item.rarity}
+                      </span>
+                      <span className="avatar-theme-tag">Environment</span>
+                    </div>
+
+                    <div className="avatar-preview-box">
+                      <div className="avatar-big-icon">{item.icon}</div>
+                      <div className="avatar-glow" style={{ background: item.color }} />
+                    </div>
+
+                    <h3 className="avatar-name">{isJa ? item.nameJa : item.name}</h3>
+                    <p className="avatar-desc">{isJa ? item.descriptionJa : item.description}</p>
+
+                    <div className="avatar-features-list">
+                      {(isJa ? item.featuresJa : item.features).map((feat, i) => (
+                        <div key={i} className="feat-chip">
+                          ✓ {feat}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="card-footer">
+                      <div className="price-tag">
+                        {item.price === 0 ? (
+                          <span className="free-tag">{isJa ? '無料' : 'Free'}</span>
+                        ) : (
+                          <>
+                            <span className="coin-sym">🪙</span>
+                            <span className="price-num">{item.price}</span>
+                            <span className="usd-alt">({item.priceUsd})</span>
+                          </>
+                        )}
+                      </div>
+
+                      {isEquipped ? (
+                        <button className="action-btn equipped-btn" disabled>
+                          ✓ {isJa ? '適用中' : 'Active'}
+                        </button>
+                      ) : isOwned ? (
+                        <button
+                          className="action-btn equip-btn"
+                          onClick={() => onEquipLandscape(item.id)}
+                        >
+                          {isJa ? '適用する' : 'Apply'}
+                        </button>
+                      ) : (
+                        <button
+                          className={`action-btn buy-btn ${!canAfford ? 'disabled' : ''}`}
+                          onClick={() => {
+                            if (canAfford) {
+                              onBuyLandscape(item);
+                            } else {
+                              setTab('coins');
+                            }
+                          }}
+                        >
+                          {canAfford
+                            ? isJa
+                              ? `購入 (🪙${item.price})`
+                              : `Unlock (🪙${item.price})`
+                            : isJa
+                            ? 'コイン不足'
+                            : 'Get Coins'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Coin Packs */}
         {tab === 'coins' && (
           <div className="store-content">
             <div className="coin-packs-header">

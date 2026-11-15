@@ -73,7 +73,7 @@ export default function App() {
   const viewRoadmap = useMemo(() => localizeRoadmap(roadmap, lang), [roadmap, lang]);
 
   useEffect(() => {
-    const id = setInterval(() => setRealNow(Date.now()), 200);
+    const id = setInterval(() => setRealNow(Date.now()), 500);
     return () => clearInterval(id);
   }, []);
 
@@ -476,6 +476,9 @@ export default function App() {
     );
   };
 
+  const handleOpenStore = useCallback(() => setShowStore(true), []);
+  const handleCloseStore = useCallback(() => setShowStore(false), []);
+
   const undo = (id) => {
     if (isSpectator) return;
     setCompleted((c) => c.filter((x) => x !== id));
@@ -510,7 +513,7 @@ export default function App() {
           restingCampId={restingCampId}
           onSelectCamp={selectCamp}
           equippedAvatar={equippedAvatar}
-          onOpenStore={() => setShowStore(true)}
+          onOpenStore={handleOpenStore}
           coins={coins}
         />
       )}
@@ -549,7 +552,7 @@ export default function App() {
             onSelectCamp={selectCamp}
             onResumeClimb={resumeClimb}
             coins={coins}
-            onOpenStore={() => setShowStore(true)}
+            onOpenStore={handleOpenStore}
           />
           <TopicPanel
             lang={lang}
@@ -588,7 +591,7 @@ export default function App() {
           onEquip={handleEquipAvatar}
           onBuyAvatar={handleBuyAvatar}
           onBuyCoins={handleBuyCoins}
-          onClose={() => setShowStore(false)}
+          onClose={handleCloseStore}
         />
       )}
 

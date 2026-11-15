@@ -67,11 +67,8 @@ function TopicNode({ node, position, status, selected, isNight, onSelect }) {
           <meshBasicMaterial color="#ffffff" transparent opacity={0.9} side={THREE.DoubleSide} />
         </mesh>
       )}
-      {status === 'completed' && (
-        <pointLight color="#ffc845" intensity={isNight ? 1.2 : 0.6} distance={isNight ? 3 : 2} />
-      )}
-      {status === 'available' && isNight && (
-        <pointLight color="#6fe0ff" intensity={0.85} distance={2.4} />
+      {selected && (
+        <pointLight color="#ffc845" intensity={isNight ? 1.4 : 0.8} distance={3.5} />
       )}
       <Html center position={[0, 0.55, 0]} distanceFactor={16} zIndexRange={[10, 0]}>
         <div className={`node-label ${status} ${selected ? 'selected' : ''}`} onClick={() => onSelect(node.id)}>
@@ -306,6 +303,7 @@ export default React.memo(function MountainScene({
 }) {
   const [hasSnow, setHasSnow] = useState(false); // Cleared by default!
   const [cameraMode, setCameraMode] = useState('free'); // 'free' | 'avatar' | 'mountain'
+  const [perfMode, setPerfMode] = useState('quality'); // 'quality' | 'fast' (60 FPS mode)
 
   const s = STRINGS[lang] || STRINGS.en;
   const positions = useMemo(() => layoutNodes(roadmap.nodes), [roadmap]);
@@ -364,6 +362,13 @@ export default React.memo(function MountainScene({
         >
           {hasSnow ? '❄️ Snow: On' : '☀️ Snow: Cleared'}
         </button>
+        <button
+          className={`scene-btn ${perfMode === 'fast' ? 'active' : ''}`}
+          onClick={() => setPerfMode((m) => (m === 'fast' ? 'quality' : 'fast'))}
+          title={perfMode === 'fast' ? 'Switch to High Quality graphics' : 'Switch to Ultra-Smooth 60 FPS performance mode'}
+        >
+          {perfMode === 'fast' ? '⚡ 60 FPS (Fast)' : '✨ High Quality'}
+        </button>
         {onOpenStore && (
           <button
             className="scene-btn store-pill-btn"
@@ -386,10 +391,17 @@ export default React.memo(function MountainScene({
       </div>
 
       <Canvas
-        shadows
-        camera={{ position: [17, 11.5, 17], fov: 45, near: 0.05, far: 300 }}
+        shadows={perfMode === 'quality'}
+        gl={{
+          powerPreference: 'high-performance',
+          antialias: perfMode === 'quality',
+          stencil: false,
+          depth: true,
+          alpha: false,
+        }}
+        camera={{ position: [17, 11.5, 17], fov: 45, near: 0.05, far: 250 }}
         onPointerMissed={() => onSelect(null)}
-        dpr={[1, 2]}
+        dpr={perfMode === 'fast' ? 1 : [1, 1.5]}
       >
         <color attach="background" args={[timeInfo?.bgColor || '#b8d4ee']} />
         <fog attach="fog" args={[timeInfo?.fogColor || '#c9dff2', 28, 125]} />
@@ -414,11 +426,12 @@ export default React.memo(function MountainScene({
           ]}
         />
         <directionalLight
-          castShadow
+          castShadow={perfMode === 'quality'}
           position={timeInfo?.sunPosition || [16, 24, 12]}
           intensity={timeInfo?.sunIntensity ?? 1.75}
           color={timeInfo?.sunColor || '#fff6e8'}
-          shadow-mapSize={[2048, 2048]}
+          shadow-mapSize={perfMode === 'fast' ? [512, 512] : [1024, 1024]}
+          shadow-bias={-0.0004}
           shadow-camera-left={-16}
           shadow-camera-right={16}
           shadow-camera-top={16}

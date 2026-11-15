@@ -8,6 +8,8 @@ export default function GoalForm({ lang = 'en', onToggleLang, onGenerate, loadin
   const [level, setLevel] = useState('beginner');
   const [hoursPerDay, setHoursPerDay] = useState(2);
   const [scalePref, setScalePref] = useState('auto');
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [customKey, setCustomKey] = useState(() => localStorage.getItem('user_gemini_key') || '');
   const [health, setHealth] = useState(null);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function GoalForm({ lang = 'en', onToggleLang, onGenerate, loadin
       .then(setHealth)
       .catch(() => {
         const key = import.meta.env.VITE_GEMINI_API_KEY?.trim() || localStorage.getItem('user_gemini_key');
-        setHealth({ ok: true, ai: Boolean(key), model: key ? 'Gemini (Client)' : null });
+        setHealth({ ok: true, ai: Boolean(key), model: key ? 'Gemini 2.5 Flash' : null });
       });
   }, []);
 
@@ -123,15 +125,55 @@ export default function GoalForm({ lang = 'en', onToggleLang, onGenerate, loadin
         </button>
 
         <div className="form-footer">
-          <span className={`badge ${health?.ai ? 'ai' : 'demo'}`}>
-            {health == null ? t.checkingAi : health.ai ? `✨ Gemini (${health.model})` : t.demoBadgeForm}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className={`badge ${health?.ai ? 'ai' : 'demo'}`}>
+              {health == null ? t.checkingAi : health.ai ? `✨ Gemini (${health.model})` : t.demoBadgeForm}
+            </span>
+            <button
+              type="button"
+              className="link"
+              style={{ fontSize: '11px', opacity: 0.8 }}
+              onClick={() => setShowKeyInput((v) => !v)}
+              title="Custom Gemini API Key"
+            >
+              🔑 {showKeyInput ? (lang === 'ja' ? '閉じる' : 'Close') : 'API Key'}
+            </button>
+          </div>
           {onCancel && (
             <button type="button" className="link" onClick={onCancel}>
               {t.backToMountain}
             </button>
           )}
         </div>
+
+        {showKeyInput && (
+          <div style={{ marginTop: '10px', display: 'flex', gap: '6px' }}>
+            <input
+              type="password"
+              placeholder={lang === 'ja' ? 'Google AI Studio APIキーを入力...' : 'Enter Gemini API key (AI Studio)...'}
+              value={customKey}
+              onChange={(e) => setCustomKey(e.target.value)}
+              style={{ fontSize: '12px', padding: '6px 10px', flex: 1, borderRadius: '8px' }}
+            />
+            <button
+              type="button"
+              className="chip active"
+              onClick={() => {
+                if (customKey.trim()) {
+                  localStorage.setItem('user_gemini_key', customKey.trim());
+                  setHealth({ ok: true, ai: true, model: 'Gemini (Custom)' });
+                } else {
+                  localStorage.removeItem('user_gemini_key');
+                  const key = import.meta.env.VITE_GEMINI_API_KEY?.trim();
+                  setHealth({ ok: true, ai: Boolean(key), model: key ? 'Gemini 2.5 Flash' : null });
+                }
+                setShowKeyInput(false);
+              }}
+            >
+              {lang === 'ja' ? '保存' : 'Save'}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

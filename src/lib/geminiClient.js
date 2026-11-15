@@ -115,3 +115,67 @@ Rules:
   const parsed = JSON.parse(text);
   return normalizeRoadmap({ ...parsed, source: 'ai' }, input);
 }
+
+const quizSchema = {
+  type: 'OBJECT',
+  properties: {
+    testDifficulty: { type: 'INTEGER' },
+    restIfPassed: { type: 'BOOLEAN' },
+    restAdvicePassed: { type: 'STRING' },
+    restAdviceStruggled: { type: 'STRING' },
+    questions: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          q: { type: 'STRING' },
+          options: { type: 'ARRAY', items: { type: 'STRING' } },
+          answer: { type: 'INTEGER' },
+          explanation: { type: 'STRING' },
+        },
+        required: ['q', 'options', 'answer', 'explanation'],
+      },
+    },
+  },
+  required: ['testDifficulty', 'restIfPassed', 'restAdvicePassed', 'restAdviceStruggled', 'questions'],
+};
+
+export async function generateQuizClient({ title, description, goal, difficulty = 3, hoursSinceRest = 0, lang = 'en' }) {
+  const apiKey = getClientApiKey();
+  if (!apiKey) throw new Error('No API key available');
+
+  const langRule =
+    lang === 'ja'
+      ? 'Write all questions, options, explanations, restAdvicePassed, and restAdviceStruggled in natural Japanese.'
+      : 'Write all questions, options, explanations, restAdvicePassed, and restAdviceStruggled in English.';
+
+  const prompt = `Create a 2-question multiple-choice checkpoint test for a student climbing a "Knowledge Mountain" toward "${goal}".
+Topic: "${title}"
+Description: "${description}"
+Expected difficulty: ${difficulty}/5 (1=easy, 5=very hard)
+Hours studied since last rest stop: ${hoursSinceRest}h
+
+Rules:
+- ${langRule}
+- Match the question rigor to difficulty ${difficulty}/5.
+- Each question must have 4 concise options and answer (0..3).
+- Set testDifficulty (1..5) to how hard this test actually is.
+- Decide whether the student should rest after this test:
+  - Set restIfPassed=true if testDifficulty >= 4 OR hoursSinceRest >= 35. Otherwise false.
+  - Write restAdvicePassed (1 sentence from the AI Sherpa).
+  - Write restAdviceStruggled (1 sentence from the AI Sherpa).`;
+
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: quizSchema, temperature: 0.7 },
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+  return JSON.parse(text);
+}

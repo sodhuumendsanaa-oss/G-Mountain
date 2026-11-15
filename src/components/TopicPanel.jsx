@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { STRINGS } from '../lib/i18n.js';
+import { generateQuizClient, getClientApiKey } from '../lib/geminiClient.js';
 
 export default function TopicPanel({
   lang = 'en',
@@ -53,6 +54,22 @@ export default function TopicPanel({
       const data = await res.json();
       setQuiz(data);
     } catch {
+      if (getClientApiKey()) {
+        try {
+          const clientQuiz = await generateQuizClient({
+            title: node.title,
+            description: node.description,
+            goal: roadmap.goal,
+            difficulty: diff,
+            hoursSinceRest,
+            lang,
+          });
+          setQuiz(clientQuiz);
+          return;
+        } catch (err) {
+          console.warn('[Quiz] Direct Gemini call failed, using fallback:', err);
+        }
+      }
       setQuiz({
         testDifficulty: diff,
         restIfPassed: diff >= 4,

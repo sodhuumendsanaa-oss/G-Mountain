@@ -32,10 +32,12 @@ function buildTerrain(size, segments, heightFn, snowLine, offset = 0) {
   return g;
 }
 
-export function Terrain() {
-  const main = useMemo(() => buildTerrain(MAIN_HALF * 2, 240, heightAt, 4.4), []);
+export function Terrain({ hasSnow = false }) {
+  const snowLine = hasSnow ? 4.4 : 999;
+  const rangeSnowLine = hasSnow ? 15 : 999;
+  const main = useMemo(() => buildTerrain(MAIN_HALF * 2, 240, heightAt, snowLine), [snowLine]);
   // Distant range sits slightly lower so it never pokes through the main tile.
-  const range = useMemo(() => buildTerrain(260, 200, rangeHeight, 15, -0.02), []);
+  const range = useMemo(() => buildTerrain(260, 200, rangeHeight, rangeSnowLine, -0.02), [rangeSnowLine]);
   return (
     <>
       <mesh geometry={main} receiveShadow castShadow>

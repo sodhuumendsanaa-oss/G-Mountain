@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sky, Stars, Html, Line, Sparkles } from '@react-three/drei';
 import { heightAt, H } from '../lib/terrain.js';
 import { layoutNodes, baseCampPosition, trailPoints, pointAtFraction, placeCamps } from '../lib/layout.js';
@@ -94,7 +94,7 @@ function Trail({ from, to, state }) {
   return <Line points={points} {...style} dashSize={0.22} gapSize={0.16} transparent opacity={state === 'locked' ? 0.55 : 0.95} />;
 }
 
-function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost = false, resting = false }) {
+function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost = false, resting = false, onFocus }) {
   const group = useRef();
   const goal = useMemo(() => new THREE.Vector3(...target), [target]);
   const initialized = useRef(false);
@@ -147,7 +147,21 @@ function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost =
   );
 
   return (
-    <group ref={group}>
+    <group
+      ref={group}
+      onClick={(e) => {
+        if (!ghost && onFocus) {
+          e.stopPropagation();
+          onFocus();
+        }
+      }}
+      onPointerOver={() => {
+        if (!ghost) document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = 'auto';
+      }}
+    >
       <group>
         {/* Golden Super Saiyan energy aura when resting at camp */}
         {!ghost && resting && (
@@ -288,7 +302,16 @@ function Climber({ target, label = 'You', restingLabel = '🔥 Resting', ghost =
 
         {/* --- Label --- */}
         <Html center position={[0, ghost ? 0.74 : 0.8, 0]} distanceFactor={16} zIndexRange={[11, 0]}>
-          <div className={ghost ? 'climber-label ghost' : resting ? 'climber-label resting' : 'climber-label'}>
+          <div
+            className={ghost ? 'climber-label ghost' : resting ? 'climber-label resting' : 'climber-label'}
+            style={{ cursor: ghost ? 'default' : 'pointer', pointerEvents: ghost ? 'none' : 'auto' }}
+            onClick={(e) => {
+              if (!ghost && onFocus) {
+                e.stopPropagation();
+                onFocus();
+              }
+            }}
+          >
             {resting ? restingLabel : label}
           </div>
         </Html>
@@ -350,6 +373,75 @@ function BaseCamp({ position, lightBoost, lang = 'en', onClick }) {
   );
 }
 
+function CameraController({ mode, setMode, climberTarget }) {
+  const { camera } = useThree();
+  const controlsRef = useRef();
+  const animating = useRef(false);
+  const animTarget = useRef(new THREE.Vector3());
+  const animCamPos = useRef(new THREE.Vector3());
+
+  // Handle camera mode transitions
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    if (mode === 'avatar' && climberTarget) {
+      animating.current = true;
+      const [tx, ty, tz] = climberTarget;
+      animTarget.current.set(tx, ty + 0.35, tz);
+      // Place camera ~1.25m offset from avatar at a friendly eye-level angle
+      animCamPos.current.set(tx + 1.15, ty + 0.55, tz + 1.15);
+    } else if (mode === 'mountain') {
+      animating.current = true;
+      animTarget.current.set(0, H * 0.42, 0);
+      animCamPos.current.set(17, 11.5, 17);
+    }
+  }, [mode, climberTarget]);
+
+  useFrame((_, dt) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    if (animating.current) {
+      const k = 1 - Math.exp(-dt * 4.5);
+      controls.target.lerp(animTarget.current, k);
+      camera.position.lerp(animCamPos.current, k);
+      controls.update();
+
+      if (
+        controls.target.distanceTo(animTarget.current) < 0.04 &&
+        camera.position.distanceTo(animCamPos.current) < 0.06
+      ) {
+        controls.target.copy(animTarget.current);
+        camera.position.copy(animCamPos.current);
+        controls.update();
+        animating.current = false;
+      }
+    }
+
+    // Keep camera comfortably above the ground so it never clips under the mountain
+    const ground = heightAt(camera.position.x, camera.position.z);
+    if (camera.position.y < ground + 0.18) {
+      camera.position.y = ground + 0.18;
+    }
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      screenSpacePanning={true}
+      minDistance={0.25}
+      maxDistance={60}
+      maxPolarAngle={Math.PI * 0.54}
+      enableDamping
+      dampingFactor={0.08}
+      onStart={() => {
+        // When user manually manipulates the camera, release animation so they have full free control
+        animating.current = false;
+      }}
+    />
+  );
+}
+
 export default React.memo(function MountainScene({
   lang = 'en',
   climberName = null,
@@ -364,6 +456,9 @@ export default React.memo(function MountainScene({
   restingCampId = null,
   onSelectCamp,
 }) {
+  const [hasSnow, setHasSnow] = useState(false); // Cleared by default!
+  const [cameraMode, setCameraMode] = useState('free'); // 'free' | 'avatar' | 'mountain'
+
   const s = STRINGS[lang] || STRINGS.en;
   const positions = useMemo(() => layoutNodes(roadmap.nodes), [roadmap]);
   const camp = useMemo(() => baseCampPosition(), []);
@@ -404,113 +499,141 @@ export default React.memo(function MountainScene({
   const lightBoost = timeInfo?.campfireBoost ?? 1;
 
   return (
-    <Canvas
-      shadows
-      camera={{ position: [17, 11.5, 17], fov: 45 }}
-      onPointerMissed={() => onSelect(null)}
-      dpr={[1, 2]}
-    >
-      <color attach="background" args={[timeInfo?.bgColor || '#b8d4ee']} />
-      <fog attach="fog" args={[timeInfo?.fogColor || '#c9dff2', 28, 125]} />
-      {timeInfo?.showSky !== false ? (
-        <Sky
-          sunPosition={timeInfo?.sunPosition || [55, 28, 35]}
-          turbidity={timeInfo?.turbidity ?? 5}
-          rayleigh={timeInfo?.rayleigh ?? 1.35}
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* 3D Scene Viewport Toolbar */}
+      <div className="scene-toolbar">
+        <button
+          className={`scene-btn ${cameraMode === 'avatar' ? 'active' : ''}`}
+          onClick={() => setCameraMode((m) => (m === 'avatar' ? 'mountain' : 'avatar'))}
+          title={cameraMode === 'avatar' ? 'Switch to Full Mountain View' : 'Focus closely on avatar'}
+        >
+          {cameraMode === 'avatar' ? '🏔️ Mountain View' : '🥋 Focus Avatar'}
+        </button>
+        <button
+          className={`scene-btn ${!hasSnow ? 'active' : ''}`}
+          onClick={() => setHasSnow((s) => !s)}
+          title="Toggle snow on/off"
+        >
+          {hasSnow ? '❄️ Snow: On' : '☀️ Snow: Cleared'}
+        </button>
+        <button
+          className="scene-btn"
+          onClick={() => setCameraMode('mountain')}
+          title="Reset camera perspective"
+        >
+          🧭 Reset View
+        </button>
+        <span className="scene-tip">
+          🖱️ Right-drag / 2-finger drag to pan freely
+        </span>
+      </div>
+
+      <Canvas
+        shadows
+        camera={{ position: [17, 11.5, 17], fov: 45, near: 0.05, far: 300 }}
+        onPointerMissed={() => onSelect(null)}
+        dpr={[1, 2]}
+      >
+        <color attach="background" args={[timeInfo?.bgColor || '#b8d4ee']} />
+        <fog attach="fog" args={[timeInfo?.fogColor || '#c9dff2', 28, 125]} />
+        {timeInfo?.showSky !== false ? (
+          <Sky
+            sunPosition={timeInfo?.sunPosition || [55, 28, 35]}
+            turbidity={timeInfo?.turbidity ?? 5}
+            rayleigh={timeInfo?.rayleigh ?? 1.35}
+          />
+        ) : (
+          <>
+            <Stars radius={90} depth={45} count={2600} factor={4} saturation={0.2} fade speed={0.6} />
+            <Moon />
+          </>
+        )}
+        <ambientLight intensity={timeInfo?.ambientIntensity ?? 0.5} />
+        <hemisphereLight
+          args={[
+            timeInfo?.hemiSky || '#e3f1ff',
+            timeInfo?.hemiGround || '#2c442e',
+            timeInfo?.hemiIntensity ?? 0.55,
+          ]}
         />
-      ) : (
-        <>
-          <Stars radius={90} depth={45} count={2600} factor={4} saturation={0.2} fade speed={0.6} />
-          <Moon />
-        </>
-      )}
-      <ambientLight intensity={timeInfo?.ambientIntensity ?? 0.5} />
-      <hemisphereLight
-        args={[
-          timeInfo?.hemiSky || '#e3f1ff',
-          timeInfo?.hemiGround || '#2c442e',
-          timeInfo?.hemiIntensity ?? 0.55,
-        ]}
-      />
-      <directionalLight
-        castShadow
-        position={timeInfo?.sunPosition || [16, 24, 12]}
-        intensity={timeInfo?.sunIntensity ?? 1.75}
-        color={timeInfo?.sunColor || '#fff6e8'}
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-16}
-        shadow-camera-right={16}
-        shadow-camera-top={16}
-        shadow-camera-bottom={-16}
-      />
+        <directionalLight
+          castShadow
+          position={timeInfo?.sunPosition || [16, 24, 12]}
+          intensity={timeInfo?.sunIntensity ?? 1.75}
+          color={timeInfo?.sunColor || '#fff6e8'}
+          shadow-mapSize={[2048, 2048]}
+          shadow-camera-left={-16}
+          shadow-camera-right={16}
+          shadow-camera-top={16}
+          shadow-camera-bottom={-16}
+        />
 
-      <Terrain />
-      <Trees avoid={avoidList} />
-      <Rocks />
-      <Clouds color={timeInfo?.cloudColor || '#ffffff'} opacity={timeInfo?.cloudOpacity ?? 0.85} />
-      <Snow />
-      <SummitFlag conquered={allDone} />
-      <BaseCamp position={camp} lightBoost={lightBoost} lang={lang} onClick={() => onSelectCamp?.('base')} />
+        <Terrain hasSnow={hasSnow} />
+        <Trees avoid={avoidList} />
+        <Rocks />
+        <Clouds color={timeInfo?.cloudColor || '#ffffff'} opacity={timeInfo?.cloudOpacity ?? 0.85} />
+        {hasSnow && <Snow />}
+        <SummitFlag conquered={allDone} />
+        <BaseCamp position={camp} lightBoost={lightBoost} lang={lang} onClick={() => onSelectCamp?.('base')} />
 
-      {camps.map((c) => {
-        const reached = isCampReached(c, completed, progressFrac);
-        const trailPt = (c.nodeId && positions[c.nodeId]) || pointAtFraction(c.f, slices, positions, camp);
-        return (
-          <React.Fragment key={c.id}>
-            <Trail from={trailPt} to={campPos[c.id]} state={reached ? 'done' : 'camp'} />
-            <Camp
-              camp={c}
-              position={campPos[c.id]}
-              reached={reached}
-              isNext={nextCamp?.id === c.id}
-              lightBoost={lightBoost}
-              lang={lang}
-              onClick={() => onSelectCamp?.(c.id)}
-            />
-          </React.Fragment>
-        );
-      })}
+        {camps.map((c) => {
+          const reached = isCampReached(c, completed, progressFrac);
+          const trailPt = (c.nodeId && positions[c.nodeId]) || pointAtFraction(c.f, slices, positions, camp);
+          return (
+            <React.Fragment key={c.id}>
+              <Trail from={trailPt} to={campPos[c.id]} state={reached ? 'done' : 'camp'} />
+              <Camp
+                camp={c}
+                position={campPos[c.id]}
+                reached={reached}
+                isNext={nextCamp?.id === c.id}
+                lightBoost={lightBoost}
+                lang={lang}
+                onClick={() => onSelectCamp?.(c.id)}
+              />
+            </React.Fragment>
+          );
+        })}
 
-      {roadmap.nodes.map((n) =>
-        n.prerequisites.map((p) => {
-          const state = doneSet.has(n.id) && doneSet.has(p) ? 'done' : doneSet.has(p) ? 'open' : 'locked';
-          return <Trail key={`${p}->${n.id}`} from={positions[p]} to={positions[n.id]} state={state} />;
-        })
-      )}
-      {roadmap.nodes
-        .filter((n) => n.prerequisites.length === 0)
-        .map((n) => (
-          <Trail key={`camp->${n.id}`} from={camp} to={positions[n.id]} state={doneSet.has(n.id) ? 'done' : 'open'} />
+        {roadmap.nodes.map((n) =>
+          n.prerequisites.map((p) => {
+            const state = doneSet.has(n.id) && doneSet.has(p) ? 'done' : doneSet.has(p) ? 'open' : 'locked';
+            return <Trail key={`${p}->${n.id}`} from={positions[p]} to={positions[n.id]} state={state} />;
+          })
+        )}
+        {roadmap.nodes
+          .filter((n) => n.prerequisites.length === 0)
+          .map((n) => (
+            <Trail key={`camp->${n.id}`} from={camp} to={positions[n.id]} state={doneSet.has(n.id) ? 'done' : 'open'} />
+          ))}
+
+        {roadmap.nodes.map((n) => (
+          <TopicNode
+            key={n.id}
+            node={n}
+            position={positions[n.id]}
+            status={statusOf(n)}
+            selected={selectedId === n.id}
+            isNight={isNight}
+            onSelect={onSelect}
+          />
         ))}
 
-      {roadmap.nodes.map((n) => (
-        <TopicNode
-          key={n.id}
-          node={n}
-          position={positions[n.id]}
-          status={statusOf(n)}
-          selected={selectedId === n.id}
-          isNight={isNight}
-          onSelect={onSelect}
+        <Climber
+          target={climberTarget}
+          label={climberName || s.you3d}
+          restingLabel={s.resting3d}
+          resting={Boolean(restingCampId)}
+          onFocus={() => setCameraMode('avatar')}
         />
-      ))}
+        <Climber target={paceTarget} label={s.pace3d} ghost />
 
-      <Climber
-        target={climberTarget}
-        label={climberName || s.you3d}
-        restingLabel={s.resting3d}
-        resting={Boolean(restingCampId)}
-      />
-      <Climber target={paceTarget} label={s.pace3d} ghost />
-
-      <OrbitControls
-        target={[0, H * 0.42, 0]}
-        enablePan={false}
-        minDistance={7}
-        maxDistance={36}
-        maxPolarAngle={Math.PI * 0.47}
-        enableDamping
-      />
-    </Canvas>
+        <CameraController
+          mode={cameraMode}
+          setMode={setCameraMode}
+          climberTarget={climberTarget}
+        />
+      </Canvas>
+    </div>
   );
 });

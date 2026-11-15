@@ -1,8 +1,7 @@
 import React from 'react';
 import { hoursProgress, isCampReached, scheduleSlices } from '../lib/schedule.js';
 import { STRINGS } from '../lib/i18n.js';
-
-const SUMMIT_METERS = 8848;
+import { computeMountainDimensions } from '../lib/terrain.js';
 
 export default function CampPanel({
   lang = 'en',
@@ -53,7 +52,9 @@ export default function CampPanel({
     .filter((n) => n && !doneSet.has(n.id))
     .slice(0, 4);
 
-  const campAlt = Math.round(camp.f * SUMMIT_METERS);
+  const mountainScale = roadmap?.mountainScale || 7;
+  const summitMeters = roadmap?.summitMeters || computeMountainDimensions(mountainScale).meters;
+  const campAlt = Math.round(camp.f * summitMeters);
   const hoursNeeded = Math.max(0, Math.ceil(camp.f * total - doneHours));
 
   return (

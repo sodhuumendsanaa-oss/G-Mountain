@@ -204,7 +204,30 @@ button { font: inherit; cursor: pointer; }
 }
 .hud h2 { margin: 2px 0 0; font-size: 19px; line-height: 1.2; }
 .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.altitude-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .altitude { display: flex; align-items: baseline; gap: 6px; }
+.scale-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 180, 50, 0.12);
+  border: 1px solid rgba(255, 190, 70, 0.35);
+  color: #ffe08a;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: help;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+}
+.scale-badge:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 180, 50, 0.22);
+  border-color: rgba(255, 200, 80, 0.6);
+}
+.scale-badge-icon { font-size: 12px; }
 .alt-num { font-size: 32px; font-weight: 800; color: var(--gold); letter-spacing: -0.02em; }
 .alt-total { color: var(--muted); font-size: 14px; }
 .progress { position: relative; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 99px; overflow: visible; }

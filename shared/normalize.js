@@ -143,15 +143,45 @@ export function normalizeRoadmap(raw, input) {
   const goalEn = String(raw?.goal || input.goal || 'My Goal');
   const isAiGoal = /\b(ai|a\.i\.|artificial intelligence)\b/i.test(goalEn);
   const goalJa = String(raw?.goalJa || input.goalJa || (isAiGoal ? '人工知能 (AI)' : goalEn));
+
+  // Determine mountain scale (1..10) rated by Gemini or calculated from study scope
+  let scale = Number(raw?.mountainScale || input?.mountainScale);
+  if (!scale || isNaN(scale) || scale < 1 || scale > 10) {
+    if (totalHours < 25) scale = 1;
+    else if (totalHours < 60) scale = 3;
+    else if (totalHours < 120) scale = 4;
+    else if (totalHours < 200) scale = 6;
+    else if (totalHours < 320) scale = 7;
+    else if (totalHours < 500) scale = 8;
+    else if (totalHours < 750) scale = 9;
+    else scale = 10;
+  }
+  scale = Math.min(10, Math.max(1, Math.round(scale)));
+
+  // Real-world altitude equivalent (850m for 1/10 to 8,848m for 10/10)
+  const summitMeters = Math.round(850 + ((scale - 1) / 9) * (8848 - 850));
+
+  const mountainScaleReason =
+    raw?.mountainScaleReason ||
+    `Rated ${scale}/10: A ${scale >= 7 ? 'demanding high-alpine expedition' : scale <= 3 ? 'gentle approachable foothill' : 'balanced alpine mountain'} spanning ${totalHours} hours across ${nodes.length} checkpoints.`;
+
+  const mountainScaleReasonJa =
+    raw?.mountainScaleReasonJa ||
+    `規模評価 ${scale}/10: 計${totalHours}時間・${nodes.length}ステップにわたる${scale >= 7 ? '本格的な高山遠征ルート' : scale <= 3 ? '手軽に登れるなだらかな丘陵' : '標準的なアルプス級山岳'}です。`;
+
   const summaryJa =
     raw?.summaryJa ||
-    `1日${hoursPerDay}時間・${months}ヶ月間（計約${totalHours}時間）で「${goalJa}」を制覇する学習登山ルートです。麓の基礎から山頂の集大成プロジェクトまで一歩ずつ登りましょう。`;
+    `1日${hoursPerDay}時間・${months}ヶ月間（計約${totalHours}時間）で「${goalJa}」を制覇する学習登山ルートです（規模評価: ${scale}/10 · 標高${summitMeters.toLocaleString()}m）。麓の基礎から山頂の集大成プロジェクトまで一歩ずつ登りましょう。`;
 
   return {
     goal: goalEn,
     goalJa,
     summary: String(raw?.summary || ''),
     summaryJa,
+    mountainScale: scale,
+    mountainScaleReason,
+    mountainScaleReasonJa,
+    summitMeters,
     months,
     level: input.level || 'beginner',
     hoursPerDay,

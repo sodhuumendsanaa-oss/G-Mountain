@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sky, Stars, Html, Line, Sparkles } from '@react-three/drei';
-import { heightAt, H } from '../lib/terrain.js';
+import { heightAt, H, setMountainScale } from '../lib/terrain.js';
 import { layoutNodes, baseCampPosition, trailPoints, pointAtFraction, placeCamps } from '../lib/layout.js';
 import { scheduleSlices, hoursProgress, isCampReached } from '../lib/schedule.js';
 import { Terrain, Trees, Rocks, Clouds, Snow } from './scene/Landscape.jsx';
@@ -216,7 +216,7 @@ function BaseCamp({ position, lightBoost, lang = 'en', onClick }) {
   );
 }
 
-function CameraController({ mode, setMode, climberTarget }) {
+function CameraController({ mode, setMode, climberTarget, mountainScale = 7 }) {
   const { camera } = useThree();
   const controlsRef = useRef();
   const animating = useRef(false);
@@ -234,10 +234,11 @@ function CameraController({ mode, setMode, climberTarget }) {
       animCamPos.current.set(tx + 1.15, ty + 0.55, tz + 1.15);
     } else if (mode === 'mountain') {
       animating.current = true;
-      animTarget.current.set(0, H * 0.42, 0);
-      animCamPos.current.set(17, 11.5, 17);
+      const distFactor = 0.74 + (mountainScale / 10) * 0.36;
+      animTarget.current.set(0, H * 0.38, 0);
+      animCamPos.current.set(16.5 * distFactor, Math.max(6.5, H * 1.35), 16.5 * distFactor);
     }
-  }, [mode, climberTarget]);
+  }, [mode, climberTarget, mountainScale]);
 
   useFrame((_, dt) => {
     const controls = controlsRef.current;
@@ -308,12 +309,26 @@ export default React.memo(function MountainScene({
   const [perfMode, setPerfMode] = useState('quality'); // 'quality' | 'fast' (60 FPS mode)
 
   const isChristmas = equippedLandscape === 'christmas';
+  const mountainScale = roadmap?.mountainScale || 7;
+
+  useEffect(() => {
+    setMountainScale(mountainScale);
+  }, [mountainScale]);
 
   const s = STRINGS[lang] || STRINGS.en;
-  const positions = useMemo(() => layoutNodes(roadmap.nodes), [roadmap]);
-  const camp = useMemo(() => baseCampPosition(), []);
+  const positions = useMemo(() => {
+    setMountainScale(mountainScale);
+    return layoutNodes(roadmap.nodes);
+  }, [roadmap, mountainScale]);
+  const camp = useMemo(() => {
+    setMountainScale(mountainScale);
+    return baseCampPosition();
+  }, [mountainScale]);
   const slices = useMemo(() => scheduleSlices(roadmap.nodes), [roadmap]);
-  const campPos = useMemo(() => placeCamps(camps, slices, positions, camp), [camps, slices, positions, camp]);
+  const campPos = useMemo(() => {
+    setMountainScale(mountainScale);
+    return placeCamps(camps, slices, positions, camp);
+  }, [camps, slices, positions, camp, mountainScale]);
   const { frac: progressFrac } = useMemo(() => hoursProgress(roadmap.nodes, completed), [roadmap.nodes, completed]);
 
   // Keep trees clear of nodes and camps.
@@ -442,8 +457,8 @@ export default React.memo(function MountainScene({
           shadow-camera-bottom={-16}
         />
 
-        <Terrain hasSnow={isChristmas || hasSnow} />
-        <Trees avoid={avoidList} />
+        <Terrain hasSnow={isChristmas || hasSnow} mountainScale={mountainScale} />
+        <Trees avoid={avoidList} mountainScale={mountainScale} />
         <Rocks />
         <Clouds color={timeInfo?.cloudColor || '#ffffff'} opacity={timeInfo?.cloudOpacity ?? 0.85} />
         {isChristmas ? <HolidaySnow count={260} /> : hasSnow ? <Snow /> : null}
@@ -509,6 +524,7 @@ export default React.memo(function MountainScene({
           mode={cameraMode}
           setMode={setCameraMode}
           climberTarget={climberTarget}
+          mountainScale={mountainScale}
         />
       </Canvas>
     </div>

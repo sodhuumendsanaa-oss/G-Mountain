@@ -1,9 +1,41 @@
 // Procedural mountain height field, distant range, and slope/altitude-aware coloring.
-export const R = 10; // base radius of the main mountain
-export const H = 7.5; // summit height
-const EXP = 1.5; // profile exponent (gentle foothills, steep near the top)
 export const GROUND_Y = -0.3;
 export const MAIN_HALF = 15; // half-size of the main terrain tile
+
+/**
+ * Computes dynamic mountain dimensions from Gemini's 1-10 rating:
+ * - Scale 1: Gentle, small rolling hill (H ~ 2.4, R ~ 6.8, ~850m)
+ * - Scale 7: High alpine summit ("quite bigger", H ~ 8.4, R ~ 10.2, ~6,200m)
+ * - Scale 10: Colossal Everest summit (H ~ 11.4, R ~ 11.8, ~8,848m)
+ */
+export function computeMountainDimensions(scale = 7) {
+  const s = Math.min(10, Math.max(1, Number(scale) || 7));
+  const t = (s - 1) / 9; // 0..1
+  const h = 2.4 + t * 9.0; // 2.4 (scale 1) -> 8.4 (scale 7) -> 11.4 (scale 10)
+  const r = 6.8 + t * 5.0; // 6.8 (scale 1) -> 10.1 (scale 7) -> 11.8 (scale 10)
+  const exp = 1.2 + t * 0.45; // 1.2 (gentler slope) -> 1.5 (alpine) -> 1.65 (steep peak)
+  const meters = Math.round(850 + t * (8848 - 850)); // 850m -> 6,182m -> 8,848m
+  return { H: h, R: r, EXP: exp, meters, scale: s };
+}
+
+const initialDim = computeMountainDimensions(7);
+export let currentMountainScale = initialDim.scale;
+export let R = initialDim.R; // base radius of the main mountain
+export let H = initialDim.H; // summit height
+export let EXP = initialDim.EXP; // profile exponent
+
+export function getMountainScale() {
+  return currentMountainScale;
+}
+
+export function setMountainScale(scale) {
+  const dim = computeMountainDimensions(scale);
+  currentMountainScale = dim.scale;
+  R = dim.R;
+  H = dim.H;
+  EXP = dim.EXP;
+  return dim;
+}
 
 function hash(x, y) {
   const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -97,12 +129,15 @@ const DARK_ROCK = [0.28, 0.26, 0.25];
 const SNOW = [0.95, 0.97, 1.0];
 
 /** Color from altitude, slope (1 - normal.y) and world position (for noise breakup). */
-export function surfaceColor(y, slope, x, z, snowLine = 4.4) {
-  const n = fbm(x * 0.9 + 100, z * 0.9) - 0.45;
-  let c = mix(MEADOW, FOREST, smooth(0.0, 1.0, y + n * 2) * (1 - smooth(1.6, 2.4, y)));
-  c = mix(c, ALPINE, smooth(1.6, 3.0, y + n * 1.5));
-  c = mix(c, ROCK, smooth(2.8, 3.9, y + n * 1.2));
-  c = mix(c, DARK_ROCK, smooth(0.32, 0.6, slope + n * 0.25) * 0.85);
-  const snow = smooth(snowLine, snowLine + 0.7, y + n * 1.8) * (1 - smooth(0.45, 0.72, slope + n * 0.1));
+export function surfaceColor(y, slope, x, z, snowLine) {
+  const effectiveSnow = snowLine ?? (H * 0.58);
+  const normY = Math.max(0, y / (H || 7.5));
+  const n = (fbm(x * 0.9 + 100, z * 0.9) - 0.45) * 0.15;
+  
+  let c = mix(MEADOW, FOREST, smooth(0.0, 0.22, normY + n) * (1 - smooth(0.25, 0.45, normY)));
+  c = mix(c, ALPINE, smooth(0.35, 0.58, normY + n));
+  c = mix(c, ROCK, smooth(0.55, 0.78, normY + n));
+  c = mix(c, DARK_ROCK, smooth(0.32, 0.6, slope + n) * 0.85);
+  const snow = smooth(effectiveSnow, effectiveSnow + 0.7, y + n * 4.0) * (1 - smooth(0.45, 0.72, slope + n));
   return mix(c, SNOW, snow);
 }

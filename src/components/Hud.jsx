@@ -1,8 +1,8 @@
 import React from 'react';
 import { DAY, isCampReached, splitDuration } from '../lib/schedule.js';
 import { STRINGS } from '../lib/i18n.js';
+import { computeMountainDimensions } from '../lib/terrain.js';
 
-const SUMMIT_METERS = 8848;
 const pad = (n) => String(n).padStart(2, '0');
 
 export default function Hud({
@@ -43,7 +43,9 @@ export default function Hud({
   const doneHours = roadmap.nodes.filter((n) => done.has(n.id)).reduce((sum, n) => sum + n.hours, 0);
   const totalHours = roadmap.nodes.reduce((sum, n) => sum + n.hours, 0) || 1;
   const progress = doneHours / totalHours;
-  const altitude = Math.round(progress * SUMMIT_METERS);
+  const mountainScale = roadmap.mountainScale || 7;
+  const summitMeters = roadmap.summitMeters || computeMountainDimensions(mountainScale).meters;
+  const altitude = Math.round(progress * summitMeters);
   const next = roadmap.nodes.filter((n) => statusOf(n) === 'available').slice(0, 4);
 
   const t = splitDuration(remainingMs);
@@ -233,9 +235,22 @@ export default function Hud({
         </div>
       </div>
 
-      <div className="altitude">
-        <span className="alt-num">{altitude.toLocaleString()} m</span>
-        <span className="alt-total">/ {SUMMIT_METERS.toLocaleString()} m</span>
+      <div className="altitude-row">
+        <div className="altitude">
+          <span className="alt-num">{altitude.toLocaleString()} m</span>
+          <span className="alt-total">/ {summitMeters.toLocaleString()} m</span>
+        </div>
+        <div
+          className="scale-badge"
+          title={
+            lang === 'ja'
+              ? (roadmap.mountainScaleReasonJa || `登山規模: ${mountainScale}/10`)
+              : (roadmap.mountainScaleReason || `Mountain Scale: ${mountainScale}/10`)
+          }
+        >
+          <span className="scale-badge-icon">⛰️</span>
+          <span>{lang === 'ja' ? `規模 ${mountainScale}/10` : `Scale ${mountainScale}/10`}</span>
+        </div>
       </div>
       <div className="progress">
         <div className="progress-fill" style={{ width: `${progress * 100}%` }} />

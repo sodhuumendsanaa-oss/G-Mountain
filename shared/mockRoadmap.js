@@ -248,11 +248,22 @@ export function mockRoadmap(input) {
 
   const levelJa = { beginner: '初心者', intermediate: '中級者', advanced: '上級者' }[input.level] || '初心者';
 
+  let demoScale = Number(input.mountainScale);
+  if (!demoScale || isNaN(demoScale)) {
+    if (totalHours < 25) demoScale = 1;
+    else if (totalHours < 60) demoScale = 3;
+    else if (totalHours < 120) demoScale = 5;
+    else if (totalHours < 240) demoScale = 7;
+    else if (totalHours < 400) demoScale = 8;
+    else demoScale = 10;
+  }
+
   return normalizeRoadmap(
     {
       source: 'demo',
       goal: goalEn,
       goalJa,
+      mountainScale: demoScale,
       summary: `A ${months}-month climb toward ${goalEn} at ${hoursPerDay}h/day (~${totalHours}h total), starting from a ${input.level || 'beginner'} level. Foundations sit at the base; your capstone waits at the summit.`,
       summaryJa: `${levelJa}レベルから始める、1日${hoursPerDay}時間・${months}ヶ月間（計約${totalHours}時間）の「${goalJa}」攻略ルートです。麓の基礎から一歩ずつ登り、山頂の集大成プロジェクトを目指しましょう。`,
       nodes,

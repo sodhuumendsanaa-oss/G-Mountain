@@ -32,11 +32,11 @@ function buildTerrain(size, segments, heightFn, snowLine, offset = 0) {
   return g;
 }
 
-export function Terrain({ hasSnow = false }) {
-  const snowLine = hasSnow ? 4.4 : 999;
+export function Terrain({ hasSnow = false, mountainScale = 7 }) {
+  const snowLine = hasSnow ? H * 0.58 : 999;
   const rangeSnowLine = hasSnow ? 15 : 999;
   // Optimized vertex resolution (150 segments instead of 240) cuts geometry memory by 60% with identical visual fidelity
-  const main = useMemo(() => buildTerrain(MAIN_HALF * 2, 150, heightAt, snowLine), [snowLine]);
+  const main = useMemo(() => buildTerrain(MAIN_HALF * 2, 150, heightAt, snowLine), [snowLine, mountainScale]);
   const range = useMemo(() => buildTerrain(260, 90, rangeHeight, rangeSnowLine, -0.02), [rangeSnowLine]);
   return (
     <>
@@ -68,16 +68,17 @@ function useInstances(ref, items, apply) {
 }
 
 /** Pine forest on the lower slopes and valley; keeps clear of topic nodes and camps. */
-export function Trees({ avoid = [] }) {
+export function Trees({ avoid = [], mountainScale = 7 }) {
   const items = useMemo(() => {
     const rnd = mulberry32(7);
     const out = [];
+    const maxTreeAlt = Math.max(1.1, H * 0.35); // tree line scales with mountain height!
     for (let k = 0; k < 4500 && out.length < 480; k++) {
       const a = rnd() * Math.PI * 2;
-      const r = 3 + Math.sqrt(rnd()) * 26;
+      const r = 2.8 + Math.sqrt(rnd()) * 26;
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       const y = groundAt(x, z);
-      if (y > 2.3 + (rnd() - 0.5) * 0.6 || slopeAt(x, z) > 0.33) continue;
+      if (y > maxTreeAlt + (rnd() - 0.5) * 0.4 || slopeAt(x, z) > 0.33) continue;
       if (avoid.some((p) => Math.hypot(p[0] - x, p[2] - z) < 0.7)) continue;
       // Patchy forests rather than uniform coverage.
       if (Math.sin(x * 0.5) * Math.cos(z * 0.45) + rnd() * 0.9 < 0.1) continue;
@@ -86,7 +87,7 @@ export function Trees({ avoid = [] }) {
       out.push({ x, y, z, s, rot: rnd() * 6.28, color: new THREE.Color(0.08, g, 0.1 + rnd() * 0.05) });
     }
     return out;
-  }, [avoid]);
+  }, [avoid, mountainScale]);
 
   const crowns = useRef();
   const trunks = useRef();

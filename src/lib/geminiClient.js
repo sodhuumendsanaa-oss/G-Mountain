@@ -14,6 +14,18 @@ const schema = {
     goalJa: { type: 'STRING' },
     summary: { type: 'STRING' },
     summaryJa: { type: 'STRING' },
+    mountainScale: {
+      type: 'INTEGER',
+      description: 'Mountain scale rating from 1 to 10 evaluating the overall depth, ambition, and difficulty of this learning goal (1 = tiny hill, 5 = standard mountain, 7 = high alpine peak, 10 = colossal Everest-scale summit).',
+    },
+    mountainScaleReason: {
+      type: 'STRING',
+      description: 'One short sentence explaining why this goal was rated this scale out of 10 in English.',
+    },
+    mountainScaleReasonJa: {
+      type: 'STRING',
+      description: 'One short sentence explaining why this goal was rated this scale out of 10 in natural Japanese.',
+    },
     nodes: {
       type: 'ARRAY',
       items: {
@@ -51,7 +63,7 @@ const schema = {
       },
     },
   },
-  required: ['goalJa', 'summary', 'summaryJa', 'nodes'],
+  required: ['goalJa', 'summary', 'summaryJa', 'mountainScale', 'mountainScaleReason', 'mountainScaleReasonJa', 'nodes'],
 };
 
 export async function generateRoadmapClient(input) {
@@ -66,6 +78,20 @@ Student profile:
 - Timeframe: ${input.months} month(s) (~${weeks} weeks)
 - Level: ${input.level}
 - Study time: ${input.hoursPerDay} hours per day (~${totalHours} hours total)
+${input.mountainScale ? `- Preferred Mountain Scale: ${input.mountainScale}/10` : ''}
+
+MOUNTAIN SCALE EVALUATION (Scale 1 to 10):
+Rate the ambition, scope, and technical depth of this learning goal on an integer scale from 1 to 10 (mountainScale). This rating physically resizes the 3D Mountain rendered in the app:
+- 1 to 2 (Tiny Hill / Foothill ~850m - 1,700m): A brief hobby, weekend tutorial, single syntax introduction, or quick mini-project (<25 hours). The mountain will render as a small, gentle rolling hill.
+- 3 to 4 (Small Mountain ~2,500m - 3,500m): A focused intermediate skill or basic framework course (25-60 hours).
+- 5 to 6 (Standard Alpine Peak ~4,400m - 5,300m): Solid university-level course, full framework mastery (60-150 hours).
+- 7 to 8 (High Alpine Summit ~6,200m - 7,100m): QUITE BIGGER. Demanding professional domain, comprehensive full-stack/AI skill, multi-month disciplined study (150-350 hours).
+- 9 to 10 (Colossal Everest Summit ~8,000m - 8,848m): Massive epic undertaking, zero-to-expert career transformation, deep specialized mastery (350+ hours).
+${input.mountainScale ? `(Note: The student preferred mountainScale = ${input.mountainScale}; please use this scale or refine it slightly based on their actual goal.)` : ''}
+Provide:
+- mountainScale: integer 1..10
+- mountainScaleReason: 1 sentence explaining why this rating was assigned in English
+- mountainScaleReasonJa: 1 sentence explaining why this rating was assigned in natural Japanese
 
 Rules:
 - 10 to 16 topics.

@@ -94,6 +94,95 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; gap: 12px;
 }
 .hud-top-actions { display: flex; align-items: center; gap: 6px; }
+
+/* ---------- User Auth & Cloud Sync ---------- */
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--cyan);
+  flex-shrink: 0;
+}
+.user-avatar-placeholder {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cyan);
+  color: #0e1626;
+  font-weight: 800;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sync-tag {
+  font-size: 10px;
+  color: var(--cyan);
+  font-weight: 600;
+}
+.google-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  width: 100%;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.google-login-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--cyan);
+}
+.spectator-banner {
+  background: linear-gradient(135deg, rgba(111, 224, 255, 0.2), rgba(255, 200, 69, 0.2));
+  border: 1px solid var(--cyan);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e6f7ff;
+}
 .hud-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .lang-switch {
   display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.07);

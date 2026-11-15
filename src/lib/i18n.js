@@ -109,6 +109,17 @@ export const STRINGS = {
     lofiOn: '🎵 Lo-Fi ON',
     lofiOff: '🎵 Lo-Fi',
 
+    // Cloud Auth & Sync
+    signInGoogle: 'Sign in with Google',
+    signOut: 'Sign out',
+    cloudSyncing: 'Saving…',
+    cloudSynced: '☁️ Synced',
+    cloudGuest: '👤 Guest (Local)',
+    shareClimbBtn: '🔗 Share Climb',
+    linkCopied: '📋 Link copied! Friends can explore your mountain.',
+    viewingShared: (name) => `👀 Viewing ${name}'s Mountain`,
+    backToMyClimb: 'Back to My Mountain',
+
     toastPackedUp: '⛏️ Packed up from camp — back on the trail!',
     toastRestingAt: (name) => `🔥 Resting at ${name}. Countdown paused while you recharge.`,
     toastResumed: '⛏️ Resumed the climb!',
@@ -227,6 +238,17 @@ export const STRINGS = {
       `${icon} ${time}（${phase}）· ノードをクリックしてAIテストに挑戦、⛺キャンプで休憩`,
     lofiOn: '🎵 Lo-Fi 再生中',
     lofiOff: '🎵 Lo-Fi BGM',
+
+    // Cloud Auth & Sync
+    signInGoogle: 'Googleでログイン',
+    signOut: 'ログアウト',
+    cloudSyncing: '保存中…',
+    cloudSynced: '☁️ クラウド同期済',
+    cloudGuest: '👤 ゲスト (ローカル)',
+    shareClimbBtn: '🔗 登山リンクを共有',
+    linkCopied: '📋 リンクをコピーしました！他の人もあなたの山を閲覧できます。',
+    viewingShared: (name) => `👀 ${name}さんの山を閲覧中`,
+    backToMyClimb: '自分の山に戻る',
 
     toastPackedUp: '⛏️ キャンプを出発！再びトレイルへ戻ります。',
     toastRestingAt: (name) => `🔥 ${name}で休憩中。リフレッシュの間カウントダウンを停止します。`,

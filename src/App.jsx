@@ -11,6 +11,14 @@ import { getLocalTimeInfo } from './lib/timeOfDay.js';
 import { localizeRoadmap, STRINGS } from './lib/i18n.js';
 import { lofi } from './lib/lofi.js';
 import { generateRoadmapClient, getClientApiKey } from './lib/geminiClient.js';
+import {
+  subscribeToAuth,
+  loginWithGoogle,
+  logoutUser,
+  saveMountainToCloud,
+  loadMountainFromCloud,
+  loadSharedMountain,
+} from './lib/firebase.js';
 
 const STORAGE_KEY = 'knowledge-mountain-v1';
 
@@ -42,8 +50,15 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef();
   const prevSpeedRef = useRef(1);
+
+  // Auth & Cloud state
+  const [user, setUser] = useState(null);
+  const [cloudStatus, setCloudStatus] = useState('idle'); // idle | syncing | saved | error
+  const [isSpectator, setIsSpectator] = useState(false);
+  const [spectatorOwner, setSpectatorOwner] = useState('');
+
   const [clock, setClock] = useState(
-    saved ? saved.clock ?? newClock(Date.parse(saved.roadmap.createdAt) || Date.now()) : null
+    saved ? saved.clock ?? newClock(Date.parse(saved.roadmap?.createdAt) || Date.now()) : null
   );
   const [realNow, setRealNow] = useState(Date.now());
 
@@ -55,21 +70,105 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // Save to local storage for offline / quick restore
   useEffect(() => {
-    if (roadmap) {
+    if (roadmap && !isSpectator) {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ lang, roadmap, completed, clock, restingCampId, aiRestNotes })
       );
     }
-  }, [lang, roadmap, completed, clock, restingCampId, aiRestNotes]);
+  }, [lang, roadmap, completed, clock, restingCampId, aiRestNotes, isSpectator]);
+
+  // Auth listener & load user's cloud mountain
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth(async (authUser) => {
+      setUser(authUser);
+      if (authUser) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const climbId = urlParams.get('climb');
+        if (!climbId) {
+          try {
+            setCloudStatus('syncing');
+            const cloudData = await loadMountainFromCloud(authUser.uid);
+            if (cloudData?.roadmap) {
+              ensureDifficultyAndRests(cloudData.roadmap.nodes);
+              setRoadmap(cloudData.roadmap);
+              setCompleted(cloudData.completed || []);
+              if (cloudData.clock) setClock(cloudData.clock);
+              setRestingCampId(cloudData.restingCampId || null);
+              setAiRestNotes(cloudData.aiRestNotes || {});
+              if (cloudData.lang) setLang(cloudData.lang);
+              setShowForm(false);
+              showToast(`☁️ ${authUser.displayName || 'Climber'}, your mountain was loaded from cloud!`);
+            } else if (roadmap) {
+              // Sync current local mountain to user's new account
+              await saveMountainToCloud(
+                authUser.uid,
+                { roadmap, completed, clock, restingCampId, aiRestNotes, lang },
+                authUser
+              );
+            }
+            setCloudStatus('saved');
+          } catch (e) {
+            console.warn('[Cloud] Load user mountain failed:', e);
+            setCloudStatus('idle');
+          }
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Spectator mode: check if `?climb=UID` is in the URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const climbId = urlParams.get('climb');
+    if (climbId) {
+      loadSharedMountain(climbId).then((sharedData) => {
+        if (sharedData?.roadmap) {
+          setIsSpectator(true);
+          setSpectatorOwner(sharedData.user?.displayName || 'Adventurer');
+          ensureDifficultyAndRests(sharedData.roadmap.nodes);
+          setRoadmap(sharedData.roadmap);
+          setCompleted(sharedData.completed || []);
+          if (sharedData.clock) setClock(sharedData.clock);
+          setRestingCampId(sharedData.restingCampId || null);
+          setAiRestNotes(sharedData.aiRestNotes || {});
+          if (sharedData.lang) setLang(sharedData.lang);
+          setShowForm(false);
+          showToast(`👀 Exploring ${sharedData.user?.displayName || 'Adventurer'}'s Mountain!`);
+        }
+      });
+    }
+  }, []);
+
+  // Cloud Auto-Sync: debounced save to Firestore when logged in
+  useEffect(() => {
+    if (!user || isSpectator || !roadmap) return;
+    setCloudStatus('syncing');
+    const timer = setTimeout(async () => {
+      try {
+        await saveMountainToCloud(
+          user.uid,
+          { roadmap, completed, clock, restingCampId, aiRestNotes, lang },
+          user
+        );
+        setCloudStatus('saved');
+      } catch (err) {
+        console.warn('[Cloud] Auto-save error:', err);
+        setCloudStatus('error');
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [user, isSpectator, roadmap, completed, clock, restingCampId, aiRestNotes, lang]);
 
   const camps = useMemo(
     () => (roadmap ? buildCamps(roadmap.nodes, aiRestNotes, lang) : []),
     [roadmap, aiRestNotes, lang]
   );
 
-  // Local timezone time-of-day (recomputed once per minute or when overrideHour changes).
+  // Local timezone time-of-day
   const minuteBucket = Math.floor(realNow / 60000);
   const timeInfo = useMemo(
     () => getLocalTimeInfo(overrideHour, new Date(minuteBucket * 60000)),
@@ -95,7 +194,6 @@ export default function App() {
   const paceFrac = Math.round((elapsed / total) * 10000) / 10000;
   const timeUp = roadmap && elapsed >= total;
 
-  // Stop fast-forwarding once the deadline is reached.
   useEffect(() => {
     if (timeUp && clock?.speed > 1) {
       setClock((c) => ({ ...c, anchorReal: Date.now(), anchorSim: c.startedAt + total, speed: 1 }));
@@ -129,6 +227,63 @@ export default function App() {
     clearTimeout(toastTimer.current);
     setToast(msg);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleLogin = async () => {
+    try {
+      setCloudStatus('syncing');
+      const authUser = await loginWithGoogle();
+      showToast(`👋 Signed in as ${authUser.displayName || 'Climber'}!`);
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        showToast('⚠️ Google sign-in cancelled or failed.');
+      }
+      setCloudStatus('idle');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      setUser(null);
+      setCloudStatus('idle');
+      showToast('👋 Signed out. Working in local guest mode.');
+    } catch (err) {
+      console.warn('Sign-out error:', err);
+    }
+  };
+
+  const handleShare = () => {
+    if (!user) {
+      showToast('🔑 Please sign in with Google to share your mountain link!');
+      return;
+    }
+    const shareUrl = `${window.location.origin}${window.location.pathname}?climb=${user.uid}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl).then(
+        () => showToast(s.linkCopied),
+        () => prompt('Copy your shareable mountain link:', shareUrl)
+      );
+    } else {
+      prompt('Copy your shareable mountain link:', shareUrl);
+    }
+  };
+
+  const exitSpectator = () => {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setIsSpectator(false);
+    setSpectatorOwner('');
+    const prev = loadSaved();
+    if (prev?.roadmap) {
+      setRoadmap(prev.roadmap);
+      setCompleted(prev.completed || []);
+      setClock(prev.clock || null);
+      setRestingCampId(prev.restingCampId || null);
+      setAiRestNotes(prev.aiRestNotes || {});
+      setShowForm(false);
+    } else {
+      setShowForm(true);
+    }
   };
 
   const pauseAtCamp = useCallback((campId) => {
@@ -167,7 +322,6 @@ export default function App() {
     [doneSet]
   );
 
-  // Study hours accumulated since the most recent rest camp in `completed`.
   const hoursSinceRest = useMemo(() => {
     if (!roadmap) return 0;
     const campNodeIds = new Set(camps.map((c) => c.nodeId));
@@ -218,6 +372,10 @@ export default function App() {
   };
 
   const complete = (id, opts = {}) => {
+    if (isSpectator) {
+      showToast('👀 Spectator mode: You are viewing another climber’s mountain.');
+      return;
+    }
     const node = viewRoadmap.nodes.find((n) => n.id === id);
     const prevFrac = hoursProgress(roadmap.nodes, completed).frac;
     const next = [...completed, id];
@@ -264,17 +422,29 @@ export default function App() {
     }
   };
 
-  const undo = (id) => setCompleted((c) => c.filter((x) => x !== id));
+  const undo = (id) => {
+    if (isSpectator) return;
+    setCompleted((c) => c.filter((x) => x !== id));
+  };
 
   const selected = viewRoadmap?.nodes.find((n) => n.id === selectedId) || null;
-  const canUndo = selected ? !roadmap.nodes.some((n) => doneSet.has(n.id) && n.prerequisites.includes(selected.id)) : false;
+  const canUndo = selected
+    ? !roadmap.nodes.some((n) => doneSet.has(n.id) && n.prerequisites.includes(selected.id)) && !isSpectator
+    : false;
   const phaseLabel = timeInfo ? s.phases[timeInfo.phase] || timeInfo.phase : '';
+
+  const climberDisplayName = isSpectator
+    ? spectatorOwner
+    : user?.displayName
+      ? user.displayName.split(' ')[0]
+      : null;
 
   return (
     <div className="app">
       {viewRoadmap && (
         <MountainScene
           lang={lang}
+          climberName={climberDisplayName}
           roadmap={viewRoadmap}
           camps={camps}
           timeInfo={timeInfo}
@@ -296,6 +466,14 @@ export default function App() {
             onToggleLang={toggleLang}
             lofiPlaying={lofiPlaying}
             onToggleLofi={toggleLofi}
+            user={user}
+            cloudStatus={cloudStatus}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            onShare={handleShare}
+            isSpectator={isSpectator}
+            spectatorOwner={spectatorOwner}
+            onExitSpectator={exitSpectator}
             roadmap={viewRoadmap}
             camps={camps}
             timeInfo={timeInfo}

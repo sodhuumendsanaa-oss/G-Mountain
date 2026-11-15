@@ -201,6 +201,7 @@ function BaseCamp({ position, lightBoost, lang = 'en', onClick }) {
 
 export default React.memo(function MountainScene({
   lang = 'en',
+  climberName = null,
   roadmap,
   camps = [],
   timeInfo,
@@ -343,7 +344,12 @@ export default React.memo(function MountainScene({
         />
       ))}
 
-      <Climber target={climberTarget} label={s.you3d} restingLabel={s.resting3d} resting={Boolean(restingCampId)} />
+      <Climber
+        target={climberTarget}
+        label={climberName || s.you3d}
+        restingLabel={s.resting3d}
+        resting={Boolean(restingCampId)}
+      />
       <Climber target={paceTarget} label={s.pace3d} ghost />
 
       <OrbitControls
